@@ -13,79 +13,84 @@
 
 using namespace std;
 
-void create_H(gsl_matrix *H, gsl_matrix *U, gsl_vector *c, double alpha);
+struct R {
+    double x;
+    double y;
+    double z;
+};
+
+/******* ROUTINES FOR SOLVING ROOTHAN EQUATION ****/
+void diag_S(gsl_matrix *S, gsl_matrix *U);
 void create_eval_evec(gsl_matrix *A, gsl_matrix *B, gsl_vector *C);
 void create_V(gsl_matrix *U, gsl_vector *L);
 void multiply(gsl_matrix *A, gsl_matrix *B, gsl_matrix *C);
+double solve_FC_eSC(gsl_matrix *F, gsl_matrix *V, gsl_matrix *U);
+
+/******** ROUTINES FOR MATRIX ELEMENTS *****/
+double scalar_prod(R R_A, R R_B);
+double K(double alpha, double beta, R R_A, R R_B);
+R R_weighted(double alpha, double beta, R R_A, R R_B);
+double overlap(double alpha, double beta, R R_A, R R_B);
+double laplacian(double alpha, double beta, R R_A, R R_B);
+double el_nucl(double alpha, double beta, R R_A, R R_B, R R_C);
+double F0(double x);
+double direct_term(double alpha, double beta, R R_A, R R_B, double alpha_prime, double beta_prime, R R_A_prime, R R_B_prime);
+
+/******** ROUTINES FOR FILLING MATRICES ******/
+void create_S(gsl_matrix *S, R R_A, R R_B);
+void one_body_H(gsl_matrix *H, R R_A, R R_B);
+void two_body_F(gsl_vector *c, gsl_matrix *U, gsl_matrix *F, R R_A, R R_B, double gamma);
+void scale(gsl_matrix *U, gsl_vector *c, double gamma);
+
+/******** COMPUTE TOTAL ENERGY AND PRINT SOLUTION ****/
 double compute_E0(gsl_vector *c, double E_1s);
-void print_orbital(gsl_vector *c_new);
-double dir(gsl_vector *c_a, double x, double y, double z, double w, int t , int s);
-double overlap(double x, double y);
-double h_pq(double x, double y);
-double solve_HC_eSC(gsl_matrix *H, gsl_matrix *V, gsl_matrix *U);
-void scale(gsl_matrix *U, gsl_vector *c, double alpha);
-void diag_S(gsl_matrix *S, gsl_matrix *U);
-void create_S(gsl_matrix *S);
+void print_orbital(gsl_vector *c_new, R R_A, R R_B);
+double normalization(gsl_vector *c, gsl_matrix *S);
+
 
 const double pi = 3.1415926;
 const int N = 4;
 const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492};
 
 int main (){
-	int n, n_iter;
-	double alpha, E_1s=0.;
-	cout << "Number of iterations: ";
-	cin >> n_iter;
-	cout << "Select alpha (smaller than 1): ";
-	cin >> alpha;
-	gsl_matrix *S = gsl_matrix_alloc(N, N);
-	gsl_matrix *H = gsl_matrix_alloc(N, N);
-    gsl_matrix *U = gsl_matrix_calloc(N, N); 
-    gsl_matrix *V = gsl_matrix_calloc(N, N);
-	gsl_vector *c = gsl_vector_alloc(N);
+	int n, n_iter = 100;
+	R R_A, R_B;
+    R_A.x = 0., R_A.y = 0., R_A.z = 0.;
+    R_B.x = 1., R_B.y = 0., R_B.z = 0.;
+	double gamma = 0.1, E_1s=0., norm;
+	gsl_matrix *S = gsl_matrix_alloc(2*N, 2*N);
+	gsl_matrix *H = gsl_matrix_alloc(2*N, 2*N);
+	gsl_matrix *F = gsl_matrix_alloc(2*N, 2*N);
+    gsl_matrix *U = gsl_matrix_calloc(2*N, 2*N); 
+    gsl_matrix *V = gsl_matrix_calloc(2*N, 2*N);
+	gsl_vector *c = gsl_vector_alloc(2*N);
 	gsl_vector_set_all(c, 1.);
 	
-	create_S(S);
+	create_S(S, R_A, R_B);
 	diag_S(S, V);
-    ofstream file;
-	file.open("eigenvalues.txt", ios :: out | ios :: trunc);
-    file.precision(6);
+
    	for(n=0; n<n_iter; n++){
-		create_H(H, U, c, alpha);
-		E_1s = solve_HC_eSC(H, V, U);
-	    file << n << "       " << E_1s << endl;
+		norm = normalization(c, S);
+		one_body_H(H, R_A, R_B);
+		two_body_F(c, U, F, R_A, R_B, gamma);
+		gsl_matrix_add(F, H);
+		E_1s = solve_FC_eSC(F, V, U);
+		cout << E_1s << "    " << norm << endl;
 	}
-	file.close();
+    
+	cout << "   " << endl;
 
-	for(n=0; n<N; n++){
-    	cout << gsl_vector_get(c, n) << "       ";
+	for(n=0; n<2*N; n++){
+    	cout << gsl_vector_get(c, n) << endl;
     }
-
-	cout << "E_0 --> " << compute_E0(c, E_1s) << endl;
-	print_orbital(c);
+	print_orbital(c, R_A, R_B);
 }
 
 
-/********* FUNCTIONS USED FOR THE OVERLAP MATRIX S *********/
-
-void create_S(gsl_matrix *S){
-	int p, q;
-	double val=0.;
-	for(p=0; p<N; p++){
-		for(q=0; q<=p; q++){
-			val = overlap(a[p], a[q]);
-	        gsl_matrix_set(S, p, q, val);
-            gsl_matrix_set(S, q, p, val);
-		}
-	}
-}
-
-double overlap(double x, double y){
-	return pow(pi/(x + y), 1.5);
-}
+/******* ROUTINES FOR SOLVING ROOTHAN EQUATION ****/
 
 void diag_S(gsl_matrix *S, gsl_matrix *U){
-	gsl_vector *L = gsl_vector_alloc(N);
+	gsl_vector *L = gsl_vector_alloc(2*N);
 	create_eval_evec(S, U, L); 
 	create_V(U, L);
 	gsl_vector_free(L);
@@ -94,60 +99,15 @@ void diag_S(gsl_matrix *S, gsl_matrix *U){
 void create_V(gsl_matrix *U, gsl_vector *L){
 	int i;
 	double x=0.;
-	for(i=0; i<N; i++){
+	for(i=0; i<2*N; i++){
 		x = gsl_vector_get(L, i);
 		gsl_vector_set(L, i, 1./sqrt(x)); 
 	}
 	gsl_matrix_scale_columns(U, L); 
 }
 
-/******** FUNCTIONS FOR H ********/
-
-void create_H(gsl_matrix *H, gsl_matrix *U, gsl_vector *c, double alpha){
-	int p, q, t, s;
-	double val=0., C1=0., C2=0., k=0.;
-	scale(U, c, alpha);
-    for(p = 0; p < N; p++){
-		for(q = 0; q <= p; q++){
-		    val = h_pq(a[p], a[q]);			
-			for(t = 0; t < N; t++){
-				for(s = 0; s < N; s++){
-					val += dir(c, a[p], a[q], a[t], a[s], t, s);
-				 }
-			   }
-			   gsl_matrix_set(H, p, q, val);
-			   gsl_matrix_set(H, q, p, val);
-		    }
-		}
-}
-
-double dir(gsl_vector *c_a, double x, double y, double z, double w, int t , int s){
-	double C1=0., C2=0., k=0., val=0.;
-	C1 = gsl_vector_get(c_a, t);
-    C2 = gsl_vector_get(c_a, s);
-    k = sqrt(x + y + z + w);
-    val = C1*C2*2.*pow(pi, 2.5)/((x + y)*(z + w)*k);
-    return val;
-}
-
-double h_pq(double x, double y){
-	return 3.*x*y*pow(pi, 1.5)/pow(x + y, 2.5) - 4.*pi/(x + y);
-}
-
-void scale(gsl_matrix *U, gsl_vector *c, double alpha){
-	gsl_vector *c_new = gsl_vector_alloc(N);
-	gsl_matrix_get_col(c_new, U, 0);
-	gsl_vector_scale(c, 1.-alpha);
-	gsl_vector_scale(c_new, alpha);
-	gsl_vector_add(c, c_new);
-	gsl_vector_free(c_new);
-}
-
-
-/********* FUNCTIONS FOR MATRIX OPERATIONS *********/
-
 void create_eval_evec(gsl_matrix *A, gsl_matrix *B, gsl_vector *C){
-    gsl_eigen_symmv_workspace *w = gsl_eigen_symmv_alloc(N); 
+    gsl_eigen_symmv_workspace *w = gsl_eigen_symmv_alloc(2*N); 
 	gsl_eigen_symmv(A, C, B, w); 
 	gsl_eigen_symmv_free(w); 
 	gsl_eigen_symmv_sort(C, B, GSL_EIGEN_SORT_VAL_ASC);
@@ -157,9 +117,9 @@ void create_eval_evec(gsl_matrix *A, gsl_matrix *B, gsl_vector *C){
 void multiply(gsl_matrix *A, gsl_matrix *B, gsl_matrix *C){
 	int i, j, k;
 	double val, f1, f2; 
-	for(i=0; i<N; i++){
-		for(j=0; j<N; j++){
-			for(k=0; k<N; k++){
+	for(i=0; i<2*N; i++){
+		for(j=0; j<2*N; j++){
+			for(k=0; k<2*N; k++){
 				f1 = gsl_matrix_get(A, i, k);
 				f2 = gsl_matrix_get(B, k, j);
 				val += f1*f2;
@@ -171,15 +131,15 @@ void multiply(gsl_matrix *A, gsl_matrix *B, gsl_matrix *C){
 }
 
 
-double solve_HC_eSC(gsl_matrix *H, gsl_matrix *V, gsl_matrix *U){
+double solve_FC_eSC(gsl_matrix *F, gsl_matrix *V, gsl_matrix *U){
 	double val=0.; 
 	gsl_matrix_memcpy(U, V);
-	gsl_matrix *tmp = gsl_matrix_alloc(N, N);
-	gsl_vector *L = gsl_vector_alloc(N);
-	multiply(H, U, tmp); 
+	gsl_matrix *tmp = gsl_matrix_alloc(2*N, 2*N);
+	gsl_vector *L = gsl_vector_alloc(2*N);
+	multiply(F, U, tmp); 
 	gsl_matrix_transpose(U); 
-	multiply(U, tmp, H); 
-	create_eval_evec(H, tmp, L); 
+	multiply(U, tmp, F); 
+	create_eval_evec(F, tmp, L); 
 	gsl_matrix_transpose(U); 
 	multiply(U, tmp, U); 
 	val = gsl_vector_get(L, 0);
@@ -189,40 +149,227 @@ double solve_HC_eSC(gsl_matrix *H, gsl_matrix *V, gsl_matrix *U){
 }
 
 
-/******* PRINT ORBITALS & COMPUTE THE TOTAL ENERGY *************/
+/******** ROUTINES FOR MATRIX ELEMENTS *******/
 
-double compute_E0(gsl_vector *c, double E_1s){
-	int p, q, t, s;
-	double val=0., k=0., C1=0., C2=0., C3=0., C4=0.;
-	for(p = 0; p < N; p++){
-		for(q = 0; q < N; q++){
-			for(t = 0; t < N; t++){
-				for(s = 0; s < N; s++){
-				    C1 = gsl_vector_get(c, p);
-			        C2 = gsl_vector_get(c, q);
-					val += C1*C2*dir(c, a[p], a[q], a[t], a[s], t, s);
-				   }
-			   }
-		    }
-		}
-	return 2.*E_1s - val;
+double scalar_prod(R R_A, R R_B){
+    double x = R_A.x - R_B.x;
+    double y = R_A.y - R_B.y;
+    double z = R_A.z - R_B.z;
+    return x*x + y*y + z*z;
 }
 
-void print_orbital(gsl_vector *c_new){
-	double *f, h=0.004, r, C1=0., C2=0., C3=0., C4=0.;
-	int mesh = 1000, i; 
+double K(double alpha, double beta, R R_A, R R_B){
+    return exp(-alpha*beta*scalar_prod(R_A, R_B)/(alpha + beta));
+}
+
+R R_weighted(double alpha, double beta, R R_A, R R_B){
+    R R_w;
+    R_A.x = alpha*R_A.x, R_A.y = alpha*R_A.y, R_A.z = alpha*R_A.z;
+    R_B.x = beta*R_A.x, R_B.y = beta*R_A.y, R_B.z = beta*R_A.z;
+    R_w.x = (R_A.x + R_B.x)/(alpha + beta);
+    R_w.y = (R_A.y + R_B.y)/(alpha + beta);
+    R_w.z = (R_A.z + R_B.z)/(alpha + beta);
+    return R_w;
+}
+
+double overlap(double alpha, double beta, R R_A, R R_B){
+	return pow(pi/(alpha + beta), 1.5)*K(alpha, beta, R_A, R_B);
+}
+
+
+double laplacian(double alpha, double beta, R R_A, R R_B){
+    double tmp = (3. + 2.*log(K(alpha, beta, R_A, R_B)));
+    return alpha*beta/(alpha + beta)*tmp*overlap(alpha, beta, R_A, R_B);
+}
+
+double F0(double x){
+    if(x == 0.){
+        return 1;
+    }else{
+        return sqrt(pi/(4.*x))*erf(sqrt(x));
+    }
+}
+
+double el_nucl(double alpha, double beta, R R_A, R R_B, R R_C){
+    double tmp = -2*pi/(alpha + beta)*K(alpha, beta, R_A, R_B);
+    R R_P = R_weighted(alpha, beta, R_A, R_B);
+    return tmp*F0((alpha + beta)*scalar_prod(R_P, R_C));
+}
+
+
+double direct_term(double alpha, double beta, R R_A, R R_B, double alpha_prime, double beta_prime, R R_A_prime, R R_B_prime){
+    double tmp = pow(pi, 2.5)/((alpha + alpha_prime)*(beta + beta_prime)*sqrt(alpha + alpha_prime + beta + beta_prime));
+    tmp = tmp*K(alpha, alpha_prime, R_A, R_A_prime)*K(beta, beta_prime, R_B, R_B_prime);
+    R R_P, R_Q;
+    R_P = R_weighted(alpha, alpha_prime, R_A, R_A_prime);
+    R_Q = R_weighted(beta, beta_prime, R_B, R_B_prime);
+    return tmp*F0((alpha + alpha_prime)*(beta + beta_prime)*scalar_prod(R_P, R_Q)/(alpha + alpha_prime + beta + beta_prime));
+}
+
+
+/******** ROUTINES FOR FILLING MATRICES ******/
+
+void create_S(gsl_matrix *S, R R_A, R R_B){
+	int p, q;
+	double val1=0., val2=0.;
+	for(p=0; p<N; p++){
+		for(q=0; q<=p; q++){
+			val1 = overlap(a[p], a[q], R_A, R_A);
+	        gsl_matrix_set(S, p, q, val1);
+            gsl_matrix_set(S, q, p, val1);
+            gsl_matrix_set(S, p + N, q + N, val1);
+            gsl_matrix_set(S, q + N, p + N, val1);
+            val2 = overlap(a[p], a[q], R_A, R_B);
+	        gsl_matrix_set(S, p, q + N, val2);
+            gsl_matrix_set(S, q, p + N, val2);
+            gsl_matrix_set(S, p + N, q, val2);
+            gsl_matrix_set(S, q + N, p, val2);
+		}
+	}
+}
+
+
+void one_body_H(gsl_matrix *H, R R_A, R R_B){
+    int p, q;
+    double val1=0., val2=0., val3=0., val4=0.;
+    for(p = 0; p < N; p++){
+        for(q = 0; q <= p; q++){
+			
+			/* upper left submatrix */
+            val1 = laplacian(a[p], a[q], R_A, R_A);
+            val1 += el_nucl(a[p], a[q], R_A, R_A, R_A);
+            val1 += el_nucl(a[p], a[q], R_A, R_A, R_B);
+            gsl_matrix_set(H, p, q, val1);  
+            gsl_matrix_set(H, q, p, val1); 
+
+			/* upper right submatrix */
+			val2 = laplacian(a[p], a[q], R_A, R_B);
+            val2 += el_nucl(a[p], a[q], R_A, R_B, R_A);
+            val2 += el_nucl(a[p], a[q], R_A, R_B, R_B);
+            gsl_matrix_set(H, p, q + N, val2);  
+            gsl_matrix_set(H, q, p + N, val2); 
+
+			/* lower left submatrix */
+            val3 = laplacian(a[p], a[q], R_B, R_A);
+            val3 += el_nucl(a[p], a[q], R_B, R_A, R_A);
+            val3 += el_nucl(a[p], a[q], R_B, R_B, R_B);
+            gsl_matrix_set(H, p + N, q, val3);  
+            gsl_matrix_set(H, q + N, p, val3);
+
+			/* lower right submatrix */
+            val4 = laplacian(a[p], a[q], R_B, R_B);
+            val4 += el_nucl(a[p], a[q], R_B, R_B, R_A);
+            val4 += el_nucl(a[p], a[q], R_B, R_B, R_B);
+            gsl_matrix_set(H, p + N, q + N, val4);  
+            gsl_matrix_set(H, q + N, p + N, val4);
+            }
+        }
+}
+
+void two_body_F(gsl_vector *c, gsl_matrix *U, gsl_matrix *F, R R_A, R R_B, double gamma){
+	double c1=0., c2=0., k=0., val1=0., val2=.0, val3=0., val4=0.;
+    int p, q, t, s;
+	scale(U, c, gamma);
+    for(p = 0; p < N; p++){
+        for(q = 0; q <= p; q++){
+            val1=0., val2=.0, val3=0., val4=0.;
+            for(t = 0; t < N; t++){
+                for(s = 0; s < N; s++){
+					
+                    /* upper left submatrix */
+                    c1 = gsl_vector_get(c, t);
+                    c2 = gsl_vector_get(c, s);
+                    val1 += c1*c2*direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_A, R_A);
+                    val1 += c1*c2*direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_A, R_B);
+                    val1 += c1*c2*direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_B, R_A);
+                    val1 += c1*c2*direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_B, R_B);
+
+                    /* upper right submatrix */
+                    c1 = gsl_vector_get(c, t + N);
+                    c2 = gsl_vector_get(c, s);
+                    val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_A, R_A);
+                    val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_A, R_B);
+                    val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_B, R_A);
+                    val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_B, R_B);
+
+                    /* lower left submatrix */
+                    c1 = gsl_vector_get(c, t);
+                    c2 = gsl_vector_get(c, s + N);
+                    val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_A, R_A);
+                    val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_A, R_B);
+                    val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_B, R_A);
+                    val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_B, R_B);
+
+                    /* lower right submatrix */
+                    c1 = gsl_vector_get(c, t + N);
+                    c2 = gsl_vector_get(c, s + N);
+                    val4 += c1*c2*direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_A, R_A);
+                    val4 += c1*c2*direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_A, R_B);
+                    val4 += c1*c2*direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_B, R_A);
+                    val4 += c1*c2*direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_B, R_B);
+                }
+            }
+
+            /* first submatrix */
+            gsl_matrix_set(F, p, q, val1);  
+            gsl_matrix_set(F, q, p, val1);
+
+            /* second submatrix */
+            gsl_matrix_set(F, p, q + N, val2);  
+            gsl_matrix_set(F, q, p + N, val2);
+
+            /* third submatrix */
+            gsl_matrix_set(F, p + N, q, val3);  
+            gsl_matrix_set(F, q + N, p, val3);
+
+            /* fourth submatrix */
+            gsl_matrix_set(F, p + N, q + N, val4);  
+            gsl_matrix_set(F, q + N, p + N, val4);
+
+        }
+    }
+}
+
+void scale(gsl_matrix *U, gsl_vector *c, double gamma){
+	gsl_vector *c_new = gsl_vector_alloc(2*N);
+	gsl_matrix_get_col(c_new, U, 0);
+	gsl_vector_scale(c, 1. - gamma);
+	gsl_vector_scale(c_new, gamma);
+	gsl_vector_add(c, c_new);
+	gsl_vector_free(c_new);
+}
+
+
+
+/******** COMPUTE TOTAL ENERGY AND PRINT SOLUTION ****/
+
+void print_orbital(gsl_vector *c_new, R R_A, R R_B){
+	double *f, h=0.003;
+	R r;
+	int mesh = 1000, i, n; 
 	f = new double[mesh];
-	C1 = gsl_vector_get(c_new, 0);
-	C2 = gsl_vector_get(c_new, 1);
-	C3 = gsl_vector_get(c_new, 2);
-	C4 = gsl_vector_get(c_new, 3);
 	ofstream myfile;
 	myfile.open("Psi_0.txt", ios :: out | ios :: trunc);
     myfile.precision(6);
 	for(i=0; i<mesh; i++){
-		r = i*h;
-		f[i] = C1*exp(-r*r*a[0]) + C2*exp(-r*r*a[1]) + C3*exp(-r*r*a[2]) + C4*exp(-r*r*a[3]);
-		myfile << r << "       " << f[i] << endl; 	
+		r.x = -1. + i*h;
+		for(n=0; n<N; n++){
+			f[i] += gsl_vector_get(c_new, n)*exp(-(r.x - R_A.x)*(r.x - R_A.x)*a[n]);
+			f[i] += gsl_vector_get(c_new, n + N)*exp(-(r.x - R_B.x)*(r.x - R_B.x)*a[n]);
+		}
+		myfile << r.x << "       " << f[i] << endl; 	
 	}
 	myfile.close();
+}
+
+
+double normalization(gsl_vector *c, gsl_matrix *S){
+	double norm = 0.;
+	for(int r=0; r<2*N; r++){
+		for(int s=0; s<2*N; s++){
+			norm += gsl_vector_get(c, r)*gsl_matrix_get(S, r, s)*gsl_vector_get(c, s);
+		}
+	}
+	gsl_vector_scale(c, 1./sqrt(norm));
+	return norm;
 }

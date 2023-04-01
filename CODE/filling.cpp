@@ -23,17 +23,19 @@ const int N = 4;
 const double pi = 3.1415926;
 const double a[N] = {12, 2, 3, 3.5};
 
+void create_S(gsl_matrix *S, R R_A, R R_B);
+void one_body_H(gsl_matrix *H, R R_A, R R_B);
+void two_body_F(gsl_vector *c, gsl_matrix *F, R R_A, R R_B);
+
 double scalar_prod(R R_A, R R_B);
 double K(double alpha, double beta, R R_A, R R_B);
 R R_weighted(double alpha, double beta, R R_A, R R_B);
-void create_S(gsl_matrix *S, R R_A, R R_B);
 double overlap(double alpha, double beta, R R_A, R R_B);
-void one_body_F(gsl_matrix *F, R R_A, R R_B);
 double laplacian(double alpha, double beta, R R_A, R R_B);
 double el_nucl(double alpha, double beta, R R_A, R R_B, R R_C);
 double F0(double x);
 double direct_term(double alpha, double beta, R R_A, R R_B, double alpha_prime, double beta_prime, R R_A_prime, R R_B_prime);
-void two_body_F(gsl_vector *c, gsl_matrix *F, R R_A, R R_B);
+
 
 
 int main(){
@@ -45,12 +47,15 @@ int main(){
     R_B.y = 0.;
     R_B.z = 0.;
     gsl_matrix *S = gsl_matrix_alloc(2*N, 2*N);
+    gsl_matrix *H = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *F = gsl_matrix_alloc(2*N, 2*N);
     gsl_vector *c = gsl_vector_alloc(2*N);
 	gsl_vector_set_all(c, 1.);
 
     create_S(S, R_A, R_B);
+    one_body_H(H, R_A, R_B);
     two_body_F(c, F, R_A, R_B);
+    gsl_matrix_add(F, H);
 
     for(int i=0; i<2*N; i++){
         for(int j=0; j<2*N; j++){
@@ -61,6 +66,7 @@ int main(){
 
 }
 
+/************ FUNCTIONS TO CREATE MATRIX ELEMETS ***************/
 
 double scalar_prod(R R_A, R R_B){
     double x = R_A.x - R_B.x;
@@ -83,50 +89,8 @@ R R_weighted(double alpha, double beta, R R_A, R R_B){
     return R_w;
 }
 
-void create_S(gsl_matrix *S, R R_A, R R_B){
-	int p, q;
-	double val1=0., val2=0.;
-	for(p=0; p<N; p++){
-		for(q=0; q<=p; q++){
-			val1 = overlap(a[p], a[q], R_A, R_A);
-	        gsl_matrix_set(S, p, q, val1);
-            gsl_matrix_set(S, q, p, val1);
-            gsl_matrix_set(S, p + N, q + N, val1);
-            gsl_matrix_set(S, q + N, p + N, val1);
-            val2 = overlap(a[p], a[q], R_A, R_B);
-	        gsl_matrix_set(S, p, q + N, val2);
-            gsl_matrix_set(S, q, p + N, val2);
-            gsl_matrix_set(S, p + N, q, val2);
-            gsl_matrix_set(S, q + N, p, val2);
-		}
-	}
-}
-
 double overlap(double alpha, double beta, R R_A, R R_B){
 	return pow(pi/(alpha + beta), 1.5)*K(alpha, beta, R_A, R_B);
-}
-
-void one_body_F(gsl_matrix *F, R R_A, R R_B){
-    int p, q;
-    double val1=0., val2=0.;
-    for(p = 0; p < N; p++){
-        for(q = 0; q <= p; q++){
-            val1 = laplacian(a[p], a[q], R_A, R_A);
-            val1 += el_nucl(a[p], a[q], R_A, R_A, R_A);
-            val1 += el_nucl(a[p], a[q], R_A, R_A, R_B);
-            gsl_matrix_set(F, p, q, val1);  
-            gsl_matrix_set(F, q, p, val1); 
-            gsl_matrix_set(F, p + N, q + N, val1);  
-            gsl_matrix_set(F, q + N, p + N, val1); 
-            val2 = laplacian(a[p], a[q], R_A, R_B);
-            val2 += el_nucl(a[p], a[q], R_A, R_B, R_A);
-            val2 += el_nucl(a[p], a[q], R_A, R_B, R_B);
-            gsl_matrix_set(F, p, q + N, val2);  
-            gsl_matrix_set(F, q, p + N, val2); 
-            gsl_matrix_set(F, p + N, q, val2);  
-            gsl_matrix_set(F, q + N, p, val2);
-            }
-        }
 }
 
 
@@ -146,9 +110,64 @@ double F0(double x){
 double el_nucl(double alpha, double beta, R R_A, R R_B, R R_C){
     double tmp = -2*pi/(alpha + beta)*K(alpha, beta, R_A, R_B);
     R R_P = R_weighted(alpha, beta, R_A, R_B);
-    return -tmp*F0((alpha + beta)*scalar_prod(R_P, R_C));
+    return tmp*F0((alpha + beta)*scalar_prod(R_P, R_C));
 }
 
+
+double direct_term(double alpha, double beta, R R_A, R R_B, double alpha_prime, double beta_prime, R R_A_prime, R R_B_prime){
+    double tmp = pow(pi, 2.5)/((alpha + alpha_prime)*(beta + beta_prime)*sqrt(alpha + alpha_prime + beta + beta_prime));
+    tmp = tmp*K(alpha, alpha_prime, R_A, R_A_prime)*K(beta, beta_prime, R_B, R_B_prime);
+    R R_P, R_Q;
+    R_P = R_weighted(alpha, alpha_prime, R_A, R_A_prime);
+    R_Q = R_weighted(beta, beta_prime, R_B, R_B_prime);
+    return tmp*F0((alpha + alpha_prime)*(beta + beta_prime)*scalar_prod(R_P, R_Q)/(alpha + alpha_prime + beta + beta_prime));
+}
+
+
+/************** FILLING THE MATRICES **************/
+
+void create_S(gsl_matrix *S, R R_A, R R_B){
+	int p, q;
+	double val1=0., val2=0.;
+	for(p=0; p<N; p++){
+		for(q=0; q<=p; q++){
+			val1 = overlap(a[p], a[q], R_A, R_A);
+	        gsl_matrix_set(S, p, q, val1);
+            gsl_matrix_set(S, q, p, val1);
+            gsl_matrix_set(S, p + N, q + N, val1);
+            gsl_matrix_set(S, q + N, p + N, val1);
+            val2 = overlap(a[p], a[q], R_A, R_B);
+	        gsl_matrix_set(S, p, q + N, val2);
+            gsl_matrix_set(S, q, p + N, val2);
+            gsl_matrix_set(S, p + N, q, val2);
+            gsl_matrix_set(S, q + N, p, val2);
+		}
+	}
+}
+
+
+void one_body_H(gsl_matrix *H, R R_A, R R_B){
+    int p, q;
+    double val1=0., val2=0.;
+    for(p = 0; p < N; p++){
+        for(q = 0; q <= p; q++){
+            val1 = laplacian(a[p], a[q], R_A, R_A);
+            val1 += el_nucl(a[p], a[q], R_A, R_A, R_A);
+            val1 += el_nucl(a[p], a[q], R_A, R_A, R_B);
+            gsl_matrix_set(H, p, q, val1);  
+            gsl_matrix_set(H, q, p, val1); 
+            gsl_matrix_set(H, p + N, q + N, val1);  
+            gsl_matrix_set(H, q + N, p + N, val1); 
+            val2 = laplacian(a[p], a[q], R_A, R_B);
+            val2 += el_nucl(a[p], a[q], R_A, R_B, R_A);
+            val2 += el_nucl(a[p], a[q], R_A, R_B, R_B);
+            gsl_matrix_set(H, p, q + N, val2);  
+            gsl_matrix_set(H, q, p + N, val2); 
+            gsl_matrix_set(H, p + N, q, val2);  
+            gsl_matrix_set(H, q + N, p, val2);
+            }
+        }
+}
 
 void two_body_F(gsl_vector *c, gsl_matrix *F, R R_A, R R_B){
 	double c1=0., c2=0., k=0., val1=0., val2=.0, val3=0., val4=0.;
@@ -211,15 +230,3 @@ void two_body_F(gsl_vector *c, gsl_matrix *F, R R_A, R R_B){
         }
     }
 }
-
-double direct_term(double alpha, double beta, R R_A, R R_B, double alpha_prime, double beta_prime, R R_A_prime, R R_B_prime){
-    double tmp = pow(pi, 2.5)/((alpha + alpha_prime)*(beta + beta_prime)*sqrt(alpha + alpha_prime + beta + beta_prime));
-    tmp = tmp*K(alpha, alpha_prime, R_A, R_A_prime)*K(beta, beta_prime, R_B, R_B_prime);
-    R R_P, R_Q;
-    R_P = R_weighted(alpha, alpha_prime, R_A, R_A_prime);
-    R_Q = R_weighted(beta, beta_prime, R_B, R_B_prime);
-    return tmp*F0((alpha + alpha_prime)*(beta + beta_prime)*scalar_prod(R_P, R_Q)/(alpha + alpha_prime + beta + beta_prime));
-}
-
-/* mancanza di simmetria dovuta al fatto
-che moltiplico per alpha e alpha_prime le R */
