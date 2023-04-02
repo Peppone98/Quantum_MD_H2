@@ -165,7 +165,7 @@ double K(double alpha, double beta, R R_A, R R_B){
 R R_weighted(double alpha, double beta, R R_A, R R_B){
     R R_w;
     R_A.x = alpha*R_A.x, R_A.y = alpha*R_A.y, R_A.z = alpha*R_A.z;
-    R_B.x = beta*R_A.x, R_B.y = beta*R_A.y, R_B.z = beta*R_A.z;
+    R_B.x = beta*R_B.x, R_B.y = beta*R_B.y, R_B.z = beta*R_B.z;
     R_w.x = (R_A.x + R_B.x)/(alpha + beta);
     R_w.y = (R_A.y + R_B.y)/(alpha + beta);
     R_w.z = (R_A.z + R_B.z)/(alpha + beta);
@@ -191,19 +191,19 @@ double F0(double x){
 }
 
 double el_nucl(double alpha, double beta, R R_A, R R_B, R R_C){
-    double tmp = -2*pi/(alpha + beta)*K(alpha, beta, R_A, R_B);
+    double tmp = -2.*pi*K(alpha, beta, R_A, R_B)/(alpha + beta);
     R R_P = R_weighted(alpha, beta, R_A, R_B);
     return tmp*F0((alpha + beta)*scalar_prod(R_P, R_C));
 }
 
 
 double direct_term(double alpha, double beta, R R_A, R R_B, double alpha_prime, double beta_prime, R R_A_prime, R R_B_prime){
-    double tmp = pow(pi, 2.5)/((alpha + alpha_prime)*(beta + beta_prime)*sqrt(alpha + alpha_prime + beta + beta_prime));
+    double tmp = 2.*pow(pi, 2.5)/((alpha + alpha_prime)*(beta + beta_prime)*sqrt(alpha + alpha_prime + beta + beta_prime));
     tmp = tmp*K(alpha, alpha_prime, R_A, R_A_prime)*K(beta, beta_prime, R_B, R_B_prime);
     R R_P, R_Q;
     R_P = R_weighted(alpha, alpha_prime, R_A, R_A_prime);
     R_Q = R_weighted(beta, beta_prime, R_B, R_B_prime);
-    return tmp*F0((alpha + alpha_prime)*(beta + beta_prime)*scalar_prod(R_P, R_Q)/(alpha + alpha_prime + beta + beta_prime));
+    return tmp*F0(-log(K(alpha + alpha_prime, beta + beta_prime, R_P, R_Q)));
 }
 
 
@@ -285,16 +285,16 @@ void two_body_F(gsl_vector *c, gsl_matrix *U, gsl_matrix *F, R R_A, R R_B, doubl
                     val1 += c1*c2*direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_B, R_B);
 
                     /* upper right submatrix */
-                    c1 = gsl_vector_get(c, t + N);
-                    c2 = gsl_vector_get(c, s);
+                    c1 = gsl_vector_get(c, t);
+                    c2 = gsl_vector_get(c, s + N);
                     val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_A, R_A);
                     val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_A, R_B);
                     val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_B, R_A);
                     val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_B, R_B);
 
                     /* lower left submatrix */
-                    c1 = gsl_vector_get(c, t);
-                    c2 = gsl_vector_get(c, s + N);
+                    c1 = gsl_vector_get(c, t + N);
+                    c2 = gsl_vector_get(c, s);
                     val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_A, R_A);
                     val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_A, R_B);
                     val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_B, R_A);

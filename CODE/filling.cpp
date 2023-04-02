@@ -21,7 +21,7 @@ struct R {
 
 const int N = 4;
 const double pi = 3.1415926;
-const double a[N] = {12, 2, 3, 3.5};
+const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492};
 
 void create_S(gsl_matrix *S, R R_A, R R_B);
 void one_body_H(gsl_matrix *H, R R_A, R R_B);
@@ -40,12 +40,8 @@ double direct_term(double alpha, double beta, R R_A, R R_B, double alpha_prime, 
 
 int main(){
     R R_A, R_B;
-    R_A.x = 0.;
-    R_A.y = 0.;
-    R_A.z = 0.;
-    R_B.x = 1.;
-    R_B.y = 0.;
-    R_B.z = 0.;
+    R_A.x = 0., R_A.y = 0., R_A.z = 0.;
+    R_B.x = 1., R_B.y = 0., R_B.z = 0.;
     gsl_matrix *S = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *H = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *F = gsl_matrix_alloc(2*N, 2*N);
@@ -59,10 +55,12 @@ int main(){
 
     for(int i=0; i<2*N; i++){
         for(int j=0; j<2*N; j++){
-            cout << gsl_matrix_get(F, i, j) << "    ";
+            cout << gsl_matrix_get(H, i, j) << "    ";
         }
         cout << endl;
     }
+    cout << direct_term(a[0], a[0], R_A, R_A, a[0], a[0], R_A, R_A) << endl;
+    cout << direct_term(a[1], a[2], R_A, R_A, a[1], a[1], R_B, R_B) << endl;
 
 }
 
@@ -82,7 +80,7 @@ double K(double alpha, double beta, R R_A, R R_B){
 R R_weighted(double alpha, double beta, R R_A, R R_B){
     R R_w;
     R_A.x = alpha*R_A.x, R_A.y = alpha*R_A.y, R_A.z = alpha*R_A.z;
-    R_B.x = beta*R_A.x, R_B.y = beta*R_A.y, R_B.z = beta*R_A.z;
+    R_B.x = beta*R_B.x, R_B.y = beta*R_B.y, R_B.z = beta*R_B.z;
     R_w.x = (R_A.x + R_B.x)/(alpha + beta);
     R_w.y = (R_A.y + R_B.y)/(alpha + beta);
     R_w.z = (R_A.z + R_B.z)/(alpha + beta);
@@ -95,8 +93,8 @@ double overlap(double alpha, double beta, R R_A, R R_B){
 
 
 double laplacian(double alpha, double beta, R R_A, R R_B){
-    double tmp = (3. + 2.*log(K(alpha, beta, R_A, R_B)));
-    return -alpha*beta/(alpha + beta)*tmp*overlap(alpha, beta, R_A, R_B);
+    double tmp = 3. + 2.*log(K(alpha, beta, R_A, R_B));
+    return alpha*beta/(alpha + beta)*tmp*overlap(alpha, beta, R_A, R_B);
 }
 
 double F0(double x){
@@ -115,12 +113,12 @@ double el_nucl(double alpha, double beta, R R_A, R R_B, R R_C){
 
 
 double direct_term(double alpha, double beta, R R_A, R R_B, double alpha_prime, double beta_prime, R R_A_prime, R R_B_prime){
-    double tmp = pow(pi, 2.5)/((alpha + alpha_prime)*(beta + beta_prime)*sqrt(alpha + alpha_prime + beta + beta_prime));
+    double tmp = 2.*pow(pi, 2.5)/((alpha + alpha_prime)*(beta + beta_prime)*sqrt(alpha + alpha_prime + beta + beta_prime));
     tmp = tmp*K(alpha, alpha_prime, R_A, R_A_prime)*K(beta, beta_prime, R_B, R_B_prime);
     R R_P, R_Q;
     R_P = R_weighted(alpha, alpha_prime, R_A, R_A_prime);
     R_Q = R_weighted(beta, beta_prime, R_B, R_B_prime);
-    return tmp*F0((alpha + alpha_prime)*(beta + beta_prime)*scalar_prod(R_P, R_Q)/(alpha + alpha_prime + beta + beta_prime));
+    return tmp*F0(-log(K(alpha + alpha_prime, beta + beta_prime, R_P, R_Q)));
 }
 
 
