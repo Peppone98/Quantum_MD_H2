@@ -39,6 +39,7 @@ double direct_term(double alpha, double beta, R R_A, R R_B, double alpha_prime, 
 /******** ROUTINES FOR FILLING MATRICES ******/
 void create_S(gsl_matrix *S, R R_A, R R_B);
 void one_body_H(gsl_matrix *H, R R_A, R R_B);
+void build_Q(R R_A, R R_B);
 void two_body_F(gsl_vector *c, gsl_matrix *U, gsl_matrix *F, R R_A, R R_B, double gamma);
 void scale(gsl_matrix *U, gsl_vector *c, double gamma);
 
@@ -51,14 +52,16 @@ double normalization(gsl_vector *c, gsl_matrix *S);
 const double pi = 3.1415926;
 const int N = 4;
 const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492};
+double Q[2*N][2*N][2*N][2*N];
 
 int main (){
-	int n, n_iter = 100;
+	int n, n_iter = 200;
 	R R_A, R_B;
     R_A.x = 0., R_A.y = 0., R_A.z = 0.;
     R_B.x = 1., R_B.y = 0., R_B.z = 0.;
-	double gamma = 0.1, E_1s=0., norm;
+	double gamma = 0.05, E_1s=0., norm;
 	gsl_matrix *S = gsl_matrix_alloc(2*N, 2*N);
+    gsl_matrix *S_auxiliary = gsl_matrix_alloc(2*N, 2*N);
 	gsl_matrix *H = gsl_matrix_alloc(2*N, 2*N);
 	gsl_matrix *F = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *U = gsl_matrix_calloc(2*N, 2*N); 
@@ -67,20 +70,31 @@ int main (){
 	gsl_vector_set_all(c, 1.);
 	
 	create_S(S, R_A, R_B);
-	diag_S(S, V);
+    gsl_matrix_memcpy(S_auxiliary, S);
+	diag_S(S_auxiliary, V);
+    one_body_H(H, R_A, R_B);
+    build_Q(R_A, R_B);
 
    	for(n=0; n<n_iter; n++){
 		norm = normalization(c, S);
-		one_body_H(H, R_A, R_B);
 		two_body_F(c, U, F, R_A, R_B, gamma);
 		gsl_matrix_add(F, H);
 		E_1s = solve_FC_eSC(F, V, U);
-		cout << E_1s << "    " << norm << endl;
+        cout << E_1s << "   "  << norm << endl;
 	}
     
 	cout << "   " << endl;
 
-	for(n=0; n<2*N; n++){
+
+    for(int i=0; i<2*N; i++){
+        for(int j=0; j<2*N; j++){
+            cout << gsl_matrix_get(F, i, j) << "    ";
+        }
+        cout << endl;
+    }
+
+	
+    for(n=0; n<2*N; n++){
     	cout << gsl_vector_get(c, n) << endl;
     }
 	print_orbital(c, R_A, R_B);
@@ -106,6 +120,9 @@ void create_V(gsl_matrix *U, gsl_vector *L){
 	gsl_matrix_scale_columns(U, L); 
 }
 
+/*The diagonal and lower triangular part of A are 
+destroyed during the computation, but the strict upper 
+triangular part is not referenced*/
 void create_eval_evec(gsl_matrix *A, gsl_matrix *B, gsl_vector *C){
     gsl_eigen_symmv_workspace *w = gsl_eigen_symmv_alloc(2*N); 
 	gsl_eigen_symmv(A, C, B, w); 
@@ -231,104 +248,74 @@ void create_S(gsl_matrix *S, R R_A, R R_B){
 
 void one_body_H(gsl_matrix *H, R R_A, R R_B){
     int p, q;
-    double val1=0., val2=0., val3=0., val4=0.;
+    double val1=0., val2=0.;
     for(p = 0; p < N; p++){
         for(q = 0; q <= p; q++){
-			
-			/* upper left submatrix */
             val1 = laplacian(a[p], a[q], R_A, R_A);
             val1 += el_nucl(a[p], a[q], R_A, R_A, R_A);
             val1 += el_nucl(a[p], a[q], R_A, R_A, R_B);
             gsl_matrix_set(H, p, q, val1);  
             gsl_matrix_set(H, q, p, val1); 
-
-			/* upper right submatrix */
-			val2 = laplacian(a[p], a[q], R_A, R_B);
+            gsl_matrix_set(H, p + N, q + N, val1);  
+            gsl_matrix_set(H, q + N, p + N, val1); 
+            val2 = laplacian(a[p], a[q], R_A, R_B);
             val2 += el_nucl(a[p], a[q], R_A, R_B, R_A);
             val2 += el_nucl(a[p], a[q], R_A, R_B, R_B);
             gsl_matrix_set(H, p, q + N, val2);  
             gsl_matrix_set(H, q, p + N, val2); 
-
-			/* lower left submatrix */
-            val3 = laplacian(a[p], a[q], R_B, R_A);
-            val3 += el_nucl(a[p], a[q], R_B, R_A, R_A);
-            val3 += el_nucl(a[p], a[q], R_B, R_B, R_B);
-            gsl_matrix_set(H, p + N, q, val3);  
-            gsl_matrix_set(H, q + N, p, val3);
-
-			/* lower right submatrix */
-            val4 = laplacian(a[p], a[q], R_B, R_B);
-            val4 += el_nucl(a[p], a[q], R_B, R_B, R_A);
-            val4 += el_nucl(a[p], a[q], R_B, R_B, R_B);
-            gsl_matrix_set(H, p + N, q + N, val4);  
-            gsl_matrix_set(H, q + N, p + N, val4);
+            gsl_matrix_set(H, p + N, q, val2);  
+            gsl_matrix_set(H, q + N, p, val2);
             }
         }
 }
 
-void two_body_F(gsl_vector *c, gsl_matrix *U, gsl_matrix *F, R R_A, R R_B, double gamma){
-	double c1=0., c2=0., k=0., val1=0., val2=.0, val3=0., val4=0.;
+void build_Q(R R_A, R R_B){
     int p, q, t, s;
-	scale(U, c, gamma);
-    for(p = 0; p < N; p++){
-        for(q = 0; q <= p; q++){
-            val1=0., val2=.0, val3=0., val4=0.;
-            for(t = 0; t < N; t++){
-                for(s = 0; s < N; s++){
-					
-                    /* upper left submatrix */
-                    c1 = gsl_vector_get(c, t);
-                    c2 = gsl_vector_get(c, s);
-                    val1 += c1*c2*direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_A, R_A);
-                    val1 += c1*c2*direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_A, R_B);
-                    val1 += c1*c2*direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_B, R_A);
-                    val1 += c1*c2*direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_B, R_B);
-
-                    /* upper right submatrix */
-                    c1 = gsl_vector_get(c, t);
-                    c2 = gsl_vector_get(c, s + N);
-                    val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_A, R_A);
-                    val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_A, R_B);
-                    val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_B, R_A);
-                    val2 += c1*c2*direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_B, R_B);
-
-                    /* lower left submatrix */
-                    c1 = gsl_vector_get(c, t + N);
-                    c2 = gsl_vector_get(c, s);
-                    val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_A, R_A);
-                    val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_A, R_B);
-                    val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_B, R_A);
-                    val3 += c1*c2*direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_B, R_B);
-
-                    /* lower right submatrix */
-                    c1 = gsl_vector_get(c, t + N);
-                    c2 = gsl_vector_get(c, s + N);
-                    val4 += c1*c2*direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_A, R_A);
-                    val4 += c1*c2*direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_A, R_B);
-                    val4 += c1*c2*direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_B, R_A);
-                    val4 += c1*c2*direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_B, R_B);
+    for(p=0; p<N; p++){
+        for(q=0; q<N; q++){
+            for(t=0; t<N; t++){
+                for(s=0; s<N; s++){
+                    Q[p][q][t][s] = direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_A, R_A);
+                    Q[p][q][t][s + N] = direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_A, R_B);
+                    Q[p][q][t + N][s] = direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_B, R_A);
+                    Q[p][q][t + N][s + N] = direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_B, R_B);
+                    Q[p][q + N][t][s] = direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_A, R_A);
+                    Q[p][q + N][t][s + N] = direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_A, R_B);
+                    Q[p][q + N][t + N][s] = direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_B, R_A);
+                    Q[p][q + N][t + N][s + N] = direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_B, R_B);
+                    Q[p + N][q][t][s] = direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_A, R_A);
+                    Q[p + N][q + N][t][s] = direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_A, R_A);
+                    Q[p + N][q][t + N][s] = direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_B, R_A);
+                    Q[p + N][q][t][s + N] = direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_A, R_B);
+                    Q[p + N][q + N][t + N][s] = direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_B, R_A);
+                    Q[p + N][q + N][t][s + N] = direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_A, R_B);
+                    Q[p + N][q][t + N][s + N] = direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_B, R_B);
+                    Q[p + N][q + N][t + N][s + N] = direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_B, R_B);
                 }
             }
-
-            /* first submatrix */
-            gsl_matrix_set(F, p, q, val1);  
-            gsl_matrix_set(F, q, p, val1);
-
-            /* second submatrix */
-            gsl_matrix_set(F, p, q + N, val2);  
-            gsl_matrix_set(F, q, p + N, val2);
-
-            /* third submatrix */
-            gsl_matrix_set(F, p + N, q, val3);  
-            gsl_matrix_set(F, q + N, p, val3);
-
-            /* fourth submatrix */
-            gsl_matrix_set(F, p + N, q + N, val4);  
-            gsl_matrix_set(F, q + N, p + N, val4);
-
         }
     }
 }
+
+void two_body_F(gsl_vector *c, gsl_matrix *U, gsl_matrix *F, R R_A, R R_B, double gamma){
+    int p, q, t, s;
+    double val = 0., c1, c2;
+    scale(U, c, gamma);
+    for(p=0; p<2*N; p++){
+        for(q=0; q<2*N; q++){
+            val = 0.;
+            for(t=0; t<2*N; t++){
+                for(s=0; s<2*N; s++){
+                    c1 = gsl_vector_get(c, t);
+                    c2 = gsl_vector_get(c, s);
+                    val += c1*c2*(2.*Q[p][t][q][s] - Q[p][q][s][t]);
+                    gsl_matrix_set(F, p, q, val);
+                }
+            }
+        }
+    }
+}
+
 
 void scale(gsl_matrix *U, gsl_vector *c, double gamma){
 	gsl_vector *c_new = gsl_vector_alloc(2*N);
@@ -352,7 +339,7 @@ void print_orbital(gsl_vector *c_new, R R_A, R R_B){
 	myfile.open("Psi_0.txt", ios :: out | ios :: trunc);
     myfile.precision(6);
 	for(i=0; i<mesh; i++){
-		r.x = -1. + i*h;
+		r.x = -1. + R_A.x + i*h;
 		for(n=0; n<N; n++){
 			f[i] += gsl_vector_get(c_new, n)*exp(-(r.x - R_A.x)*(r.x - R_A.x)*a[n]);
 			f[i] += gsl_vector_get(c_new, n + N)*exp(-(r.x - R_B.x)*(r.x - R_B.x)*a[n]);

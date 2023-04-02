@@ -22,10 +22,13 @@ struct R {
 const int N = 4;
 const double pi = 3.1415926;
 const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492};
+double Q[2*N][2*N][2*N][2*N];
 
 void create_S(gsl_matrix *S, R R_A, R R_B);
 void one_body_H(gsl_matrix *H, R R_A, R R_B);
 void two_body_F(gsl_vector *c, gsl_matrix *F, R R_A, R R_B);
+void build_Q(R R_A, R R_B);
+void new_two_body_F(gsl_matrix *F, gsl_vector *c, R R_A, R R_B);
 
 double scalar_prod(R R_A, R R_B);
 double K(double alpha, double beta, R R_A, R R_B);
@@ -40,8 +43,8 @@ double direct_term(double alpha, double beta, R R_A, R R_B, double alpha_prime, 
 
 int main(){
     R R_A, R_B;
-    R_A.x = 0., R_A.y = 0., R_A.z = 0.;
-    R_B.x = 1., R_B.y = 0., R_B.z = 0.;
+    R_A.x = -0.5, R_A.y = 0., R_A.z = 0.;
+    R_B.x = 0.5, R_B.y = 0., R_B.z = 0.;
     gsl_matrix *S = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *H = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *F = gsl_matrix_alloc(2*N, 2*N);
@@ -50,18 +53,22 @@ int main(){
 
     create_S(S, R_A, R_B);
     one_body_H(H, R_A, R_B);
-    two_body_F(c, F, R_A, R_B);
+
+    build_Q(R_A, R_B);
+    new_two_body_F(F, c, R_A, R_B);
     gsl_matrix_add(F, H);
 
     for(int i=0; i<2*N; i++){
         for(int j=0; j<2*N; j++){
-            cout << gsl_matrix_get(H, i, j) << "    ";
+            cout << gsl_matrix_get(S, i, j) << "    ";
         }
         cout << endl;
     }
-    cout << direct_term(a[0], a[0], R_A, R_A, a[0], a[0], R_A, R_A) << endl;
-    cout << direct_term(a[1], a[2], R_A, R_A, a[1], a[1], R_B, R_B) << endl;
+    cout << Q[1][4][5][6] << "    " << Q[1][5][6][4] << "     " << 2.*Q[1][4][5][6] - Q[1][5][6][4] << endl;
 
+    for(int j=0; j<2*N; j++){
+        cout << 2.*Q[1][5][6][j] - Q[1][6][j][5] << endl;
+    }
 }
 
 /************ FUNCTIONS TO CREATE MATRIX ELEMETS ***************/
@@ -225,6 +232,53 @@ void two_body_F(gsl_vector *c, gsl_matrix *F, R R_A, R R_B){
             gsl_matrix_set(F, p + N, q + N, val4);  
             gsl_matrix_set(F, q + N, p + N, val4);
 
+        }
+    }
+}
+
+
+void build_Q(R R_A, R R_B){
+    int p, q, t, s;
+    for(p=0; p<N; p++){
+        for(q=0; q<N; q++){
+            for(t=0; t<N; t++){
+                for(s=0; s<N; s++){
+                    Q[p][q][t][s] = direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_A, R_A);
+                    Q[p][q][t][s + N] = direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_A, R_B);
+                    Q[p][q][t + N][s] = direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_B, R_A);
+                    Q[p][q][t + N][s + N] = direct_term(a[p], a[q], R_A, R_A, a[t], a[s], R_B, R_B);
+                    Q[p][q + N][t][s] = direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_A, R_A);
+                    Q[p][q + N][t][s + N] = direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_A, R_B);
+                    Q[p][q + N][t + N][s] = direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_B, R_A);
+                    Q[p][q + N][t + N][s + N] = direct_term(a[p], a[q], R_A, R_B, a[t], a[s], R_B, R_B);
+                    Q[p + N][q][t][s] = direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_A, R_A);
+                    Q[p + N][q + N][t][s] = direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_A, R_A);
+                    Q[p + N][q][t + N][s] = direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_B, R_A);
+                    Q[p + N][q][t][s + N] = direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_A, R_B);
+                    Q[p + N][q + N][t + N][s] = direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_B, R_A);
+                    Q[p + N][q + N][t][s + N] = direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_A, R_B);
+                    Q[p + N][q][t + N][s + N] = direct_term(a[p], a[q], R_B, R_A, a[t], a[s], R_B, R_B);
+                    Q[p + N][q + N][t + N][s + N] = direct_term(a[p], a[q], R_B, R_B, a[t], a[s], R_B, R_B);
+                }
+            }
+        }
+    }
+}
+
+void new_two_body_F(gsl_matrix *F, gsl_vector *c, R R_A, R R_B){
+    int p, q, t, s;
+    double val = 0., c1, c2;
+    for(p=0; p<2*N; p++){
+        for(q=0; q<2*N; q++){
+            val = 0.;
+            for(t=0; t<2*N; t++){
+                for(s=0; s<2*N; s++){
+                    c1 = gsl_vector_get(c, t);
+                    c2 = gsl_vector_get(c, s);
+                    val += c1*c2*(2.*Q[p][t][q][s] - Q[p][q][s][t]);
+                    gsl_matrix_set(F, p, q, val);
+                }
+            }
         }
     }
 }
