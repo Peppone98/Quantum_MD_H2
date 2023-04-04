@@ -60,7 +60,7 @@ int main(){
 
     for(int i=0; i<2*N; i++){
         for(int j=0; j<2*N; j++){
-            cout << gsl_matrix_get(S, i, j) << "    ";
+            cout << gsl_matrix_get(F, i, j) << "    ";
         }
         cout << endl;
     }
@@ -281,4 +281,26 @@ void new_two_body_F(gsl_matrix *F, gsl_vector *c, R R_A, R R_B){
             }
         }
     }
+}
+
+
+/********* SUSPICIOUS FUNCTIONS ********/
+
+void scale(gsl_matrix *U, gsl_vector *c, double gamma){
+	gsl_vector *c_new = gsl_vector_alloc(2*N);
+	gsl_matrix_get_col(c_new, U, 0);
+	gsl_vector_scale(c, 1. - gamma);
+	gsl_vector_scale(c_new, gamma);
+	gsl_vector_add(c, c_new);
+	gsl_vector_free(c_new);
+}
+
+double normalization(gsl_vector *c, gsl_matrix *S){
+	double norm = 0.;
+	for(int r=0; r<2*N; r++){
+		for(int s=0; s<2*N; s++){
+			norm += gsl_vector_get(c, r)*gsl_matrix_get(S, r, s)*gsl_vector_get(c, s);
+		}
+	}
+	return norm;
 }
