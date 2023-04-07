@@ -79,7 +79,7 @@ void build_Q(double Q[2*N][2*N][2*N][2*N], R R_A, R R_B){
     }
 }
 
-void two_body_F(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *U, gsl_matrix *F, R R_A, R R_B){
+void two_body_F(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *F, R R_A, R R_B){
     int p, q, t, s;
     double val = 0., c1, c2;
     for(p=0; p<2*N; p++){
@@ -90,9 +90,9 @@ void two_body_F(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *U, gsl_
                     c1 = gsl_vector_get(c, t);
                     c2 = gsl_vector_get(c, s);
                     val += c1*c2*Q[p][t][q][s];
-                    gsl_matrix_set(F, p, q, val);
                 }
             }
+            gsl_matrix_set(F, p, q, val);
         }
     }
 }
