@@ -59,7 +59,7 @@ int main (int argc, char *argv[]){
     /**** CAR PARRINELLO MOLECULAR DYNAMICS ****/
     if(string(argv[1]) == "MD_Car_Parrinello"){
         gsl_vector_set_all(c, 1.);
-        double h = 0.1;
+        double h = 0.1, m = 1., gamma = 1.;
 
         /**** impose normalization & initial conditon ****/
         normalization(c, S);
@@ -68,7 +68,7 @@ int main (int argc, char *argv[]){
         /**** MD cycle ****/
         ofstream myfile;
 	    myfile.open("CP_energies.txt", ios :: out | ios :: trunc);
-        for(n=0; n<200; n++){
+        for(n=0; n<100; n++){
             two_body_F(Q, c, F, R_A, R_B);
             gsl_matrix_add(F, H);
             update_c(F, S, c, c_old);
@@ -81,6 +81,17 @@ int main (int argc, char *argv[]){
         for(n=0; n<2*N; n++){
             cout << gsl_vector_get(c, n) << endl;
         }
+    }
+
+
+    if(string(argv[1]) == "Nuclear"){
+        cout << doverlap_dX(a[0], a[1], R_A, R_B) << endl;
+        cout << dlaplacian_dX(a[0], a[1], R_A, R_B) << endl;
+        cout << del_nucl_dX(a[0], a[1], sqrt(scalar_prod(R_A, R_B)), R_A, R_B) << endl;
+        cout << del_nucl_dX(a[0], a[1], sqrt(scalar_prod(R_A, R_B)), R_B, R_B) << endl;
+        cout << del_nucl_dX(a[0], a[1], sqrt(scalar_prod(R_A, R_B)), R_A, R_A) << endl;
+        cout << dF0_dt(0.5) << endl;
+        cout << ddirect_term_dX(a[0], a[1], R_A, R_B, a[2], a[1], R_B, R_B, scalar_prod(R_A, R_B)) << endl;
     }
 
 }

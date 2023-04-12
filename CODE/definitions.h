@@ -19,6 +19,9 @@ struct R {
 };
 
 const int N = 4;
+const int M = 10; /* points in integration grid */
+const double L = 1.; /* lenght of integration grid */
+const double h = L/M;
 const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492};
 const double pi = 3.1415926; 
 
@@ -65,5 +68,18 @@ void normalization(gsl_vector *c, gsl_matrix *S);
 double get_C(gsl_vector *c, gsl_matrix *S);
 double get_B(gsl_vector *c, gsl_vector *c_old, gsl_matrix *S, double h);
 double get_A(gsl_vector *c_old, gsl_matrix *S, double h);
+
+
+/******** FOR DFT PART ********/
+void solve_SE();
+double v(double x);
+
+/******** NUCLEAR MOTION MATRIX ELEMENTS ********/
+double doverlap_dX(double alpha, double beta, R R_A, R R_B);
+double dlaplacian_dX(double alpha, double beta, R R_A, R R_B);
+double del_nucl_dX(double alpha, double beta, double X, R R_A, R R_B);
+double dF0_dt(double t);
+double ddirect_term_dX(double alpha, double beta, R R_A, R R_B, double alpha_prime, double beta_prime, R R_A_prime, R R_B_prime, double X);
+
 
 #endif

@@ -19,11 +19,13 @@ void update_c(gsl_matrix *F, gsl_matrix *S, gsl_vector *c, gsl_vector *c_old){
 
 void partial_evolution(gsl_matrix *F, gsl_vector *c, gsl_vector *c_old, double h){
     gsl_vector *tmp = gsl_vector_alloc(2*N);
-
-    /**** c(t+h) = 2c(t) - c(t-h) ****/
     gsl_vector_memcpy(tmp, c);
+
+    /**** (1 - h)c(t+h) = 2c(t) - (1 + h)c(t-h) ****/
     gsl_vector_scale(c, 2.);
+    gsl_vector_scale(c_old, 1. - h);
     gsl_vector_sub(c, c_old);
+    gsl_vector_scale(c, 1/(1. + h));
 
     /**** subtract the product h^2*F*c(t) ****/
     gsl_vector *tmp2 = gsl_vector_alloc(2*N);
