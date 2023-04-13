@@ -1,4 +1,4 @@
-/******** COMPUTE TOTAL ENERGY AND PRINT SOLUTION ****/
+/******** COMPUTE TOTAL ENERGY AND PRINT SOLUTION *******/
 
 #include "definitions.h"
 

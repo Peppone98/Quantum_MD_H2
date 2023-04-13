@@ -5,19 +5,26 @@
 using namespace std;
 
 
-void update_c(gsl_matrix *F, gsl_matrix *S, gsl_vector *c, gsl_vector *c_old){
-    double lambda=0., A=0., B=0., C=0., h = 0.1;
-    partial_evolution(F, c, c_old, h); /*** Now the c are c(t+h) and c_old are c(t)***/
-    A = get_A(c_old, S, h);
-    B = get_B(c, c_old, S, h);
+double update_c(gsl_matrix *F, gsl_matrix *S, gsl_vector *c, gsl_vector *c_old){
+    double lambda=0., A=0., B=0., C=0.;
+    partial_evolution(F, c, c_old); 
+    /**** Now the c are c(t+h) and c_old are c(t) ****/
+
+    /**** Find lambda ****/
+    A = get_A(c_old, S);
+    B = get_B(c, c_old, S);
     C = get_C(c, S);
     lambda = lowest_positive_root(A, B, C);
-    complete_evolution(S, c, c_old, h, lambda);
+
+    /**** Add the remaining term ****/
+    complete_evolution(S, c, c_old, lambda);
+
+    return lambda;
 }
 
 
 
-void partial_evolution(gsl_matrix *F, gsl_vector *c, gsl_vector *c_old, double h){
+void partial_evolution(gsl_matrix *F, gsl_vector *c, gsl_vector *c_old){
     gsl_vector *tmp = gsl_vector_alloc(2*N);
     gsl_vector_memcpy(tmp, c);
 
@@ -39,7 +46,7 @@ void partial_evolution(gsl_matrix *F, gsl_vector *c, gsl_vector *c_old, double h
 
 
 
-void complete_evolution(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double h, double lambda){
+void complete_evolution(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lambda){
     gsl_vector *tmp = gsl_vector_alloc(2*N);
 
     /**** c(t+h) - lambda*h^2*Sc(t) ****/
@@ -60,7 +67,9 @@ double get_C(gsl_vector *c, gsl_matrix *S){
     return C - 1.;
 }
 
-double get_B(gsl_vector *c, gsl_vector *c_old, gsl_matrix *S, double h){
+
+
+double get_B(gsl_vector *c, gsl_vector *c_old, gsl_matrix *S){
     double B=0.;
     gsl_vector *tmp = gsl_vector_alloc(2*N);
     gsl_vector *tmp2 = gsl_vector_alloc(2*N);
@@ -72,7 +81,9 @@ double get_B(gsl_vector *c, gsl_vector *c_old, gsl_matrix *S, double h){
     return -2.*h*h*B;
 }
 
-double get_A(gsl_vector *c_old, gsl_matrix *S, double h){
+
+
+double get_A(gsl_vector *c_old, gsl_matrix *S){
     double A=0.;
     gsl_matrix *tmp = gsl_matrix_alloc(2*N, 2*N);
     gsl_vector *tmp2 = gsl_vector_alloc(2*N);
@@ -85,6 +96,7 @@ double get_A(gsl_vector *c_old, gsl_matrix *S, double h){
     gsl_blas_ddot(tmp2, tmp3, &A);
     return h*h*h*h*A;
 }
+
 
 
 double solve_eq2degree(double a, double b, double c, int solution){ 
@@ -100,6 +112,7 @@ double solve_eq2degree(double a, double b, double c, int solution){
         return x2;
     } 
 }
+
 
 
 double lowest_positive_root(double a, double b, double c){
@@ -120,7 +133,8 @@ double lowest_positive_root(double a, double b, double c){
 }
 
 
-void normalization(gsl_vector *c, gsl_matrix *S){
+
+double normalization(gsl_vector *c, gsl_matrix *S){
 	double norm = 0.;
 	for(int r=0; r<2*N; r++){
 		for(int s=0; s<2*N; s++){
@@ -128,4 +142,5 @@ void normalization(gsl_vector *c, gsl_matrix *S){
 		}
 	}
 	gsl_vector_scale(c, 1./sqrt(norm));
+    return norm;
 }

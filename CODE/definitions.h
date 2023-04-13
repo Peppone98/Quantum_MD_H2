@@ -18,10 +18,14 @@ struct R {
     double z;
 };
 
+const double M_N = 2000.; /* nuclear mass */
+const double gamma_N = 15.; /* nuclear damping */
+const int CP_iter = 50; /* Car-Parrinello iterations */
+const double m = 2.; /* fictitious mass */
+const double gamma_el= 1.; /* electronic damping */
+const double h = 0.1; /* electronic time scale */
+const double h_N = 43*h; /* nuclear time scale*/
 const int N = 4;
-const int M = 10; /* points in integration grid */
-const double L = 1.; /* lenght of integration grid */
-const double h = L/M;
 const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492};
 const double pi = 3.1415926; 
 
@@ -58,21 +62,16 @@ void print_orbital(gsl_vector *c_new, R R_A, R R_B);
 
 
 /******** EVOLVE THE COEFFICIENTS IN TIME ********/
-void update_c(gsl_matrix *F, gsl_matrix *S, gsl_vector *c, gsl_vector *c_old);
-void partial_evolution(gsl_matrix *F, gsl_vector *c, gsl_vector *c_old, double h);
-void complete_evolution(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double h, double lambda);
+double update_c(gsl_matrix *F, gsl_matrix *S, gsl_vector *c, gsl_vector *c_old);
+void partial_evolution(gsl_matrix *F, gsl_vector *c, gsl_vector *c_old);
+void complete_evolution(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lambda);
 double solve_eq2degree(double a, double b, double c, int solution);
 double lowest_positive_root(double a, double b, double c);
-double get_lambda(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double h);
-void normalization(gsl_vector *c, gsl_matrix *S);
+double normalization(gsl_vector *c, gsl_matrix *S);
 double get_C(gsl_vector *c, gsl_matrix *S);
-double get_B(gsl_vector *c, gsl_vector *c_old, gsl_matrix *S, double h);
-double get_A(gsl_vector *c_old, gsl_matrix *S, double h);
+double get_B(gsl_vector *c, gsl_vector *c_old, gsl_matrix *S);
+double get_A(gsl_vector *c_old, gsl_matrix *S);
 
-
-/******** FOR DFT PART ********/
-void solve_SE();
-double v(double x);
 
 /******** NUCLEAR MOTION MATRIX ELEMENTS ********/
 double doverlap_dX(double alpha, double beta, R R_A, R R_B);
@@ -80,6 +79,15 @@ double dlaplacian_dX(double alpha, double beta, R R_A, R R_B);
 double del_nucl_dX(double alpha, double beta, double X, R R_A, R R_B);
 double dF0_dt(double t);
 double ddirect_term_dX(double alpha, double beta, R R_A, R R_B, double alpha_prime, double beta_prime, R R_A_prime, R R_B_prime, double X);
+
+/******** ROUTINES FOR FILLING NUCLEAR MATRICES ******/
+void create_dS_dX(gsl_matrix *S, R R_A, R R_B);
+void one_body_dH_dX(gsl_matrix *H, R R_A, R R_B, double X);
+void build_dQ_dX(double Q[2*N][2*N][2*N][2*N], R R_A, R R_B, double X);
+
+/********** EVOLVE X IN TIME ********/
+double evolve_X(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *H, gsl_matrix *S, R *R_B, double lambda, double dE0_dX, double X, double X_old);
+double compute_dE0_dX(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *H, R R_A, R R_B);
 
 
 #endif
