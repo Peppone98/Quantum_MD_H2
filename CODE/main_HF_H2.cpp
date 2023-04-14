@@ -22,7 +22,7 @@ int main (int argc, char *argv[]){
 
     /**** Initial nuclei positions ****/
     R_A.x = 0., R_A.y = 0., R_A.z = 0.;
-    R_B.x = 1., R_B.y = 0., R_B.z = 0.;
+    R_B.x = 1.0, R_B.y = 0., R_B.z = 0.;
 
     /**** Fill S and compute V ****/
     create_S(S, R_A, R_B);
@@ -67,7 +67,7 @@ int main (int argc, char *argv[]){
     /**** EVOLUTION OF THE COEFFICIENTS C(t) ****/
     if(string(argv[1]) == "Evolve_coefficients"){
         ofstream myfile;
-	    myfile.open("CP_energies.txt", ios :: out | ios :: trunc);
+	    myfile.open("Energies_C_evolution.txt", ios :: out | ios :: trunc);
 
         /**** MD cycle ****/
         for(n=0; n<100; n++){
@@ -89,13 +89,21 @@ int main (int argc, char *argv[]){
     /**** CAR PARRINELLO MOLECULAR DYNAMICS ****/
     if(string(argv[1]) == "MD_Car_Parrinello"){
 
-        /**** HF single iteration (S, H, Q have already been built) ****/
-        two_body_F(Q, c, F, R_A, R_B);
-        gsl_matrix_add(F, H);
-        lambda = update_c(F, S, c, c_old);
+        /**** Get first guess of lambda with a little equilibration ****/
+        int first_eq = 43;
+        for(int k=0; k<first_eq; k++){
+            two_body_F(Q, c, F, R_A, R_B);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
         cout << "Initial Hartree Fock energy: " << compute_E0(Q, c, H, R_A, R_B) << endl;
         cout << "Initial internuclear distance: " << X[0] << endl;
         cout << "  " << endl;
+
+
+        ofstream myfile;
+	    myfile.open("CP_X_energies.txt", ios :: out | ios :: trunc);
+
 
         /**** Loop for internuclear distance update ****/
         for(n=1; n<CP_iter-1; n++){
@@ -126,21 +134,40 @@ int main (int argc, char *argv[]){
                 lambda = update_c(F, S, c, c_old);
             }
 
-            cout << R_B.x << "       " <<X[n + 1] << "    " << compute_E0(Q, c, H, R_A, R_B) << endl;
+            myfile << X[n + 1] << "    " << compute_E0(Q, c, H, R_A, R_B) << endl;
 
         }
+
+        myfile.close();
     }
 
 
     if(string(argv[1]) == "Prova"){
+        
+        /**** Print the coefficients ****/
+        cout << "Vector of coefficients: " << endl;
+        for(n=0; n<2*N; n++){
+            cout << gsl_vector_get(c, n) << endl;
+        }
+
         two_body_F(Q, c, F, R_A, R_B);
         gsl_matrix_add(F, H);
         lambda = update_c(F, S, c, c_old);
         cout << "Initial Hartree Fock energy: " << compute_E0(Q, c, H, R_A, R_B) << endl;
         cout << "Initial internuclear distance: " << X[0] << endl;
         cout << "  " << endl;
-    }
-    
+
+        /**** Print the coefficients ****/
+        cout << "Vector of coefficients: " << endl;
+        for(n=0; n<2*N; n++){
+            cout << gsl_vector_get(c, n) << endl;
+        }
+
+        create_dS_dX(S, R_A, R_B);
+        one_body_dH_dX(H, R_A, R_B, X[0]);
+        build_dQ_dX(Q, R_A, R_B, X[0]);
+
+    }   
 
 }
 

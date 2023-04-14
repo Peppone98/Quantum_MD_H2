@@ -34,14 +34,14 @@ void one_body_dH_dX(gsl_matrix *H, R R_A, R R_B, double X){
         for(q = 0; q <= p; q++){
 
             val1 = dlaplacian_dX(a[p], a[q], R_A, R_A);
-            val1 += del_nucl_dX(a[p], a[q], X, R_A, R_A);
+            val1 -= del_nucl_dX(a[p], a[q], X, R_A, R_A);
             gsl_matrix_set(H, p, q, val1);  
             gsl_matrix_set(H, q, p, val1); 
             gsl_matrix_set(H, p + N, q + N, val1);  
             gsl_matrix_set(H, q + N, p + N, val1); 
 
             val2 = dlaplacian_dX(a[p], a[q], R_A, R_B);
-            val2 += del_nucl_dX(a[p], a[q], X, R_A, R_B);
+            val2 -= del_nucl_dX(a[p], a[q], X, R_A, R_B);
             gsl_matrix_set(H, p, q + N, val2);  
             gsl_matrix_set(H, q, p + N, val2); 
             gsl_matrix_set(H, p + N, q, val2);  
