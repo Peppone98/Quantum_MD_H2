@@ -39,8 +39,8 @@ double dF0_dt(double t){
 double del_nucl_dX(double alpha, double beta, double X, R R_A, R R_B){
     double theta = 2.*sqrt((alpha + beta)/pi);
     double tmp = 0., t1=0., t2=0.;
-    if(R_A.x == R_B.x && R_A.y == R_B.y && R_A.z == R_B.z){
-        return 2.*theta*overlap(alpha, beta, R_A, R_B)*dF0_dt((alpha + beta)*X)*(alpha + beta)*X;
+    if(R_A.x == R_B.x){
+        return 2.*theta*overlap(alpha, beta, R_A, R_B)*dF0_dt((alpha + beta)*X*X)*(alpha + beta)*X;
     }else{
         t1 = alpha*alpha*X*X/(alpha + beta);
         t2 = beta*beta*X*X/(alpha + beta);

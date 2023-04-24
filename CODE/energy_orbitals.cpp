@@ -23,23 +23,21 @@ void print_orbital(gsl_vector *c_new, R R_A, R R_B){
 	myfile.close();
 }
 
-double compute_E0(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *H, R R_A, R R_B){
-    int p, q, t, s;
-    double E0 = 0., c_p=0., c_q=0., c_t=0., c_s=0., H_pq=0.;
-    for(p=0; p<2*N; p++){
-        for(q=0; q<2*N; q++){
-            c_p = gsl_vector_get(c, p);
-            c_q = gsl_vector_get(c, q);
-            H_pq = gsl_matrix_get(H, p, q);
-            E0 += 2.*c_p*c_q*H_pq;
-            for(t=0; t<2*N; t++){
-                for(s=0; s<2*N; s++){
-                    c_t = gsl_vector_get(c, t);
-                    c_s = gsl_vector_get(c, s);
-                    E0 += c_p*c_q*c_t*c_s*Q[p][t][q][s];
-                }
-            }
-        }
+
+
+double compute_E0(gsl_matrix *F, gsl_matrix *H, gsl_vector *c){
+	/**** Create copies of F and c to avoid unwanted changes ****/
+    gsl_vector *tmp_c = gsl_vector_alloc(2*N);
+	gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
+	gsl_matrix_memcpy(tmp_F, F);
+
+    /**** Add H to the Fock matrix ****/
+    gsl_matrix_add(tmp_F, H);
+    gsl_blas_dgemv(CblasNoTrans, 1., tmp_F, c, 0., tmp_c);
+
+    double result = 0.;
+    for(int i=0; i<2*N; i++){
+        result += gsl_vector_get(c, i)*gsl_vector_get(tmp_c, i);
     }
-    return E0 + 1/sqrt(scalar_prod(R_A, R_B));
+    return result;
 }

@@ -3,6 +3,8 @@
 
 #include "definitions.h"
 
+using namespace std;
+
 void create_dS_dX(gsl_matrix *S, R R_A, R R_B){
 	int p, q;
 	double val1=0., val2=0.;
@@ -30,6 +32,10 @@ void create_dS_dX(gsl_matrix *S, R R_A, R R_B){
 void one_body_dH_dX(gsl_matrix *H, R R_A, R R_B, double X){
     int p, q;
     double val1=0., val2=0.;
+    if(sqrt(scalar_prod(R_A, R_B)) != X){
+        cout << "Warning: give correct distances" << endl;
+    }
+    cout << "Quick check: "<< sqrt(scalar_prod(R_A, R_B)) << "  " << X << endl;
     for(p = 0; p < N; p++){
         for(q = 0; q <= p; q++){
 

@@ -5,15 +5,29 @@
 using namespace std;
 
 /**** First step: X(t) = X(t - h_N), i.e., X(h_N) = X(0) ****/
-double evolve_X(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *H, gsl_matrix *S, R *R_B, double lambda, double dE0_dX, double X, double X_old){
+double evolve_X(gsl_vector *c, gsl_matrix *S, R *R_B, double lambda, double dE0_dX, double X, double X_old){
     gsl_vector *c_tmp = gsl_vector_alloc(2*N);
     gsl_vector_memcpy(c_tmp, c);
 
-    /**** "normalization" also changes the c, that is the reason of c_tmp ****/
+    /**** The function "normalization" also changes the c, that is the reason of c_tmp ****/
     double norm = normalization(c_tmp, S);
-    double X_new = X*M_N - 0.5*X_old*(M_N - gamma_N*h_N);
-    X_new -= h_N*h_N*(dE0_dX - lambda*norm);
-    X_new = 2.*X_new/(M_N + gamma_N*h_N);
+
+    /**** This is a mistery ****/
+    double lambda_tmp = lambda*0.25*(m + h*gamma_el);
+
+    /**** Equation of motion for X ****/
+    double X_new = 2.*X*M_N - X_old*(M_N - 0.5*gamma_N*h_N);
+    cout << "1) Partial X: " << X_new << endl;
+    cout << "X_old: " << X_old << endl;
+    cout << "X: " << X << endl;
+
+
+    /* mysterious factor 2 */
+    X_new -= 2.*h_N*h_N*(dE0_dX + lambda_tmp*norm);
+    cout << "2) Partial X: " << setprecision(5) << fixed << X_new << endl;
+    cout << "Deincrement: " << setprecision(5) << fixed << 2.*h_N*h_N*(dE0_dX + lambda_tmp*norm) << endl;
+    X_new = X_new/(M_N + 0.5*gamma_N*h_N);
+    cout << "3) Partial X: " << setprecision(8) << fixed << X_new << endl;
 
     /**** Update the nuclear position B ****/
     R_B->x = X_new;  
@@ -21,11 +35,9 @@ double evolve_X(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *H, gsl_
 }
 
 /**** The matrices must be dQ/dX and dH/dX when called ****/
-double compute_dE0_dX(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *H, R R_A, R R_B){
-    double X = scalar_prod(R_A, R_B);
+double compute_dE0_dX(gsl_matrix *F, gsl_matrix *H, gsl_vector *c, double X){
     double dE0_dX=0.;
-    dE0_dX = compute_E0(Q, c, H, R_A, R_B) - 1/X;
-    dE0_dX -= 1/(X*X);
+    dE0_dX = compute_E0(F, H, c) - 1./(X*X);
     return dE0_dX;
 }
 

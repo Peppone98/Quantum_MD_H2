@@ -28,7 +28,7 @@ void partial_evolution(gsl_matrix *F, gsl_vector *c, gsl_vector *c_old){
     gsl_vector *tmp = gsl_vector_alloc(2*N);
     gsl_vector_memcpy(tmp, c);
 
-    /**** (1 - h)c(t+h) = 2c(t) - (1 + h)c(t-h) ****/
+    /**** (1 + h)c(t+h) = 2c(t) - (1 - h)c(t-h) ****/
     gsl_vector_scale(c, m);
     gsl_vector_scale(c_old, 0.5*m - 0.5*h*gamma_el);
     gsl_vector_sub(c, c_old);
@@ -37,7 +37,7 @@ void partial_evolution(gsl_matrix *F, gsl_vector *c, gsl_vector *c_old){
     /**** subtract the product h^2*F*c(t)*2./(m + h*gamma_el) ****/
     gsl_vector *tmp2 = gsl_vector_alloc(2*N);
     gsl_blas_dgemv(CblasNoTrans, 1., F, tmp, 0., tmp2);
-    gsl_vector_scale(tmp2, h*h*2./(m + h*gamma_el));
+    gsl_vector_scale(tmp2, 4.*h*h*2./(m + h*gamma_el));
     gsl_vector_sub(c, tmp2);
 
     /**** set the c(t-h) equal to c(t) ****/
