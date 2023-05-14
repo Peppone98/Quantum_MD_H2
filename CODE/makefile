@@ -1,5 +1,5 @@
-HF_H2: matrix_elements.o solving_Roothan.o filling_matrices.o energy_orbitals.o Cs_evol.o der_matrix_elements.o nuclear_matrices.o X_evol.o main_HF_H2.o
-	c++ -o HF_H2 matrix_elements.o solving_Roothan.o filling_matrices.o energy_orbitals.o Cs_evol.o der_matrix_elements.o nuclear_matrices.o X_evol.o main_HF_H2.o -lm -lgsl -lgslcblas
+HF_H2: matrix_elements.o solving_Roothan.o filling_matrices.o energy_orbitals.o Cs_evol.o der_matrix_elements.o nuclear_matrices.o X_evol.o CG_routine.o main_HF_H2.o
+	c++ -o HF_H2 matrix_elements.o solving_Roothan.o filling_matrices.o energy_orbitals.o Cs_evol.o der_matrix_elements.o nuclear_matrices.o X_evol.o CG_routine.o main_HF_H2.o -lm -lgsl -lgslcblas
 
 matrix_elements.o: matrix_elements.cpp definitions.h
 	c++ -c matrix_elements.cpp
@@ -25,8 +25,11 @@ nuclear_matrices.o: nuclear_matrices.cpp definitions.h
 X_evol.o: X_evol.cpp definitions.h
 	c++ -c X_evol.cpp
 
+CG_routine.o: CG_routine.cpp definitions.h
+	c++ -c CG_routine.cpp
+
 main_HF_H2.o: main_HF_H2.cpp definitions.h
 	c++ -c main_HF_H2.cpp
 
 clean :
-	rm -f HF_H2 main_HF_H2.o matrix_elements.o solving_Roothan.o filling_matrices.o energy_orbitals.o Cs_evol.o der_matrix_elements.o nuclear_matrices.o X_evol.o
+	rm -f HF_H2 main_HF_H2.o matrix_elements.o solving_Roothan.o filling_matrices.o energy_orbitals.o Cs_evol.o der_matrix_elements.o nuclear_matrices.o X_evol.o CG_routine.o

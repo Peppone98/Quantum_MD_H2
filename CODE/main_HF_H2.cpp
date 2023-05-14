@@ -4,7 +4,7 @@ using namespace std;
 
 int main (int argc, char *argv[]){
 
-    /**** BUILD VARIABLES ****/
+    /**** Create space for matrices and vectors ****/
 	int n, n_iter = 20;
 	R R_A, R_B;
     double Q[2*N][2*N][2*N][2*N];
@@ -40,26 +40,34 @@ int main (int argc, char *argv[]){
     gsl_vector_memcpy(c_old, c);
 	
     
-    /**** SELF-CONSISTENT HARTREE-FOCK ****/
+    /**** 1) SELF-CONSISTENT HARTREE-FOCK ****/
     if (string(argv[1]) == "SC_Hartree_Fock"){
-        cout << "Hartree-Fock energies" << endl;
+        cout << "Hartree-Fock energies: " << endl;
+
         for(n=0; n<n_iter; n++){
+
+            /**** Build Fock matrix using Q and H ****/
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
 
-            /**** tmp matrix is needed beacuse eval_evec destroys lower part of F ****/
-            gsl_matrix *tmp = gsl_matrix_alloc(2*N, 2*N);
-            gsl_matrix_memcpy(tmp, F);
-            E_1s = solve_FC_eSC(tmp, V, U);
+            /**** tmp_F is needed beacuse solve_FC_eSC destroys lower part of F ****/
+            gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
+            gsl_matrix_memcpy(tmp_F, F);
+            E_1s = solve_FC_eSC(tmp_F, V, U);
             cout << E_1s << endl;
+
+            /**** Get the c vector from eigenvector matrix U ****/
             gsl_matrix_get_col(c, U, 0);
         }
+
+        /**** Print the coefficients ****/
         cout << "   " << endl;
         cout << "Vector of coefficients" << endl;
         for(n=0; n<2*N; n++){
             cout << gsl_vector_get(c, n) << endl;
         }
-
+        
+        /**** Print orbital and HF energy ****/
         print_orbital(c, R_A, R_B);
         cout << "   " << endl;
         cout << "Total HF energy" << endl;
@@ -67,12 +75,12 @@ int main (int argc, char *argv[]){
 	}
 
 
-    /**** EVOLUTION OF THE COEFFICIENTS C(t) ****/
+    /**** 2) EVOLUTION OF THE COEFFICIENTS C(t) AT FIXED X ****/
     if(string(argv[1]) == "Evolve_coefficients"){
         ofstream myfile;
 	    myfile.open("Energies_C_evolution.txt", ios :: out | ios :: trunc);
 
-        /**** MD cycle ****/
+        /**** MD cycle: compute new c vector and keep F updated ****/
         for(n=0; n<50; n++){
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
@@ -89,13 +97,12 @@ int main (int argc, char *argv[]){
     }
 
 
-    /**** CAR PARRINELLO MOLECULAR DYNAMICS ****/
+    /**** 3) CAR PARRINELLO MOLECULAR DYNAMICS ****/
     if(string(argv[1]) == "MD_Car_Parrinello"){
 
         ofstream myfile;
 	    myfile.open("CP_X_energies.txt", ios :: out | ios :: trunc);
 
-        /**** Loop for internuclear distance update ****/
         for(n=1; n<CP_iter-1; n++){
 
             /**** Fill S, H and Q for electronic problem ****/
@@ -103,6 +110,7 @@ int main (int argc, char *argv[]){
             one_body_H(H, R_A, R_B);
             build_Q(Q, R_A, R_B);
 
+            /**** Evolve the c vector of coefficients ****/
             double n_times = h_N/h;
             for(int k=0; k<n_times; k++){
                 two_body_F(Q, c, F);
@@ -122,11 +130,9 @@ int main (int argc, char *argv[]){
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
 
-            /**** Also R_B.x is updated ****/
+            /**** Update X (also R_B.x is updated) ****/
             dE0_dX = compute_dE0_dX(F, H, c, X[n]);
             X[n + 1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[n], X[n-1]);
-            cout << "lambda: " << lambda << endl;
-            cout << "dE0_dX: " << dE0_dX << endl;
             cout << "  " << endl;
             myfile << X[n] << "    " << E0 << endl;
 
@@ -136,102 +142,95 @@ int main (int argc, char *argv[]){
     }
 
 
-    if(string(argv[1]) == "Prova"){
-        
-        for(int i=1; i<3; i++){
-            cout << "  " << endl;
-            cout << "Nuclear step number: " << i << endl;
-            /**** Get first guess of lambda with a little equilibration ****/
-            int first_eq = 43;
-            /**** Rebuild the matrices for electronic problem ****/
-            create_S(S, R_A, R_B);
-            one_body_H(H, R_A, R_B);
-            build_Q(Q, R_A, R_B);
-            cout << setprecision(11) << fixed << "New position: " << R_B.x << endl;
-            cout << setprecision(11) << fixed << "Check S[3][5]: " << gsl_matrix_get(S, 3, 5) << endl;
-            cout << setprecision(11) << fixed << "Check H[3][5]: " << gsl_matrix_get(H, 3, 5) << endl;
-            cout << setprecision(11) << fixed << "Check Q[1][2][3][5]: " << Q[1][2][3][5] << endl;
-
-
-            /**** First cycle for the c ****/
-            for(int k=0; k<first_eq; k++){
-                two_body_F(Q, c, F);
-                gsl_matrix_add(F, H);
-                cout << setprecision(8) << fixed << "Prova: " << compute_E0(F, H, c) + 1./X[i] << endl;
-                lambda = update_c(F, S, c, c_old);
-            }
-
-            cout << setprecision(11) << fixed << "Check F[3][5]: " << gsl_matrix_get(F, 3, 5) << endl;
-
-            cout << "  " << endl;
-            cout << "Hartree Fock energy: " << setprecision(8) << fixed << compute_E0(F, H, c) + 1./X[i] << endl;
-            cout << "Internuclear distance: " << X[i] << endl;
-            cout << "  " << endl;
-
-            /**** Print the coefficients ****/
-            cout << "Vector of coefficients: " << endl;
-            for(n=0; n<2*N; n++){
-                cout << gsl_vector_get(c, n) << setprecision(11) << fixed << endl;
-            }
-
-            create_dS_dX(S, R_A, R_B);
-            one_body_dH_dX(H, R_A, R_B, X[i]);
-            build_dQ_dX(Q, R_A, R_B, X[i]);
-
-            cout << setprecision(11) << fixed << "Check dS_dX[3][5]: " << gsl_matrix_get(S, 3, 5) << endl;
-            cout << setprecision(11) << fixed << "Check dH_dX[3][5]: " << gsl_matrix_get(H, 3, 5) << endl;
-            cout << setprecision(11) << fixed << "Check dH_dX[4][4]: " << gsl_matrix_get(H, 4, 4) << endl;
-            cout << setprecision(11) << fixed << "Check dQ_dX[1][2][3][5]: " << Q[1][2][3][5] << endl;
-
+    /**** 4) CONJUGATE GRADIENT (SINGLE RUN) ****/
+    if(string(argv[1]) == "CG_min"){
+        /**** Start with little equilibration cycle ****/
+        for(n=0; n<25; n++){
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
-            dE0_dX = compute_dE0_dX(F, H, c, X[i]);
-
-            cout << setprecision(11) << fixed << "Check dF_dX[3][5]: " << gsl_matrix_get(F, 3, 5) << endl;
-
-            cout << "lambda: " << lambda << endl;
-            cout << "dE0_dX: " << dE0_dX << endl;
-
-            /* Here also the R_B.x evolves */
-            X[i+1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[i], X[i-1]);
-            cout << "Distance: " << setprecision(5) << fixed << X[i+1] << "    " << R_B.x << endl;
+            lambda = update_c(F, S, c, c_old);
         }
+
+        /**** Fill the Hessian and b (minus the gradient of E) ****/
+        gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
+        gsl_vector *b = gsl_vector_alloc(2*N);
+        Get_Hessian_and_b(Hessian, b, Q, S, F, c);
+
+        double E_initial = compute_E0(F, H, c);
+
+        /**** Define the increment Delta_c and then apply the CG routine ****/
+        gsl_vector *Delta_c = gsl_vector_alloc(2*N);
+        gsl_vector_set_all(Delta_c, 0.0);
+        Conj_grad(Hessian, b, Delta_c, 0.001);
+        gsl_vector_add(c, Delta_c);
+
+        cout << "Vector of coefficients: " << endl;
+        for(n=0; n<2*N; n++){
+            cout << gsl_vector_get(c, n) << endl;
+        }
+
+        double E_final = compute_E0(F, H, c);
+        cout << E_final - E_initial << endl;
+
     }
 
     
+    /**** 4) CONJUGATE GRADIENT - CAR PARRINELLO ****/
+    if(string(argv[1]) == "CG_CP"){
 
-    if(string(argv[1]) == "Prova2"){
-        R_B.x = 1.0016275;
-        gsl_vector *prova = gsl_vector_alloc(2*N);
-        gsl_vector_set(prova, 0, 0.09627628);
-        gsl_vector_set(prova, 1, 0.17769337);
-        gsl_vector_set(prova, 2, 0.12480673);
-        gsl_vector_set(prova, 3, 0.01775755);
-        gsl_vector_set(prova, 4, 0.09627628);
-        gsl_vector_set(prova, 5, 0.17769337);
-        gsl_vector_set(prova, 6, 0.12480673);
-        gsl_vector_set(prova, 7, 0.01775755);
-
-        /**** Get first guess of lambda with a little equilibration ****/
-        int first_eq = 43;
-        /**** Rebuild the matrices for electronic problem ****/
-        create_S(S, R_A, R_B);
-        one_body_H(H, R_A, R_B);
-        build_Q(Q, R_A, R_B);
-
-        /**** Correct normalization and update c(t+h) ****/
-        /* norm = normalization(c_old, S); */
-        norm = normalization(prova, S);
-        two_body_F(Q, prova, F);
-
-        /**** First cycle for the c ****/
-        for(int k=0; k<first_eq; k++){
-            two_body_F(Q, prova, F);
+        /**** Start with little equilibration cycle ****/
+        for(n=0; n<25; n++){
+            two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
-            lambda = update_c(F, S, prova, c_old);
-            cout << setprecision(8) << fixed << "Prova: " << compute_E0(F, H, c) << endl;
+            lambda = update_c(F, S, c, c_old);
         }
+
+        ofstream myfile;
+	    myfile.open("CP_CG_X.txt", ios :: out | ios :: trunc);
+
+        for(n=1; n<CP_iter-1; n++){
+
+            /**** Fill the Hessian and b (minus the gradient of E) ****/
+            gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
+            gsl_vector *b = gsl_vector_alloc(2*N);
+            Get_Hessian_and_b(Hessian, b, Q, S, F, c);
+
+            /**** Define the increment Delta_c and then apply the CG routine ****/
+            gsl_vector *Delta_c = gsl_vector_alloc(2*N);
+            gsl_vector_set_all(Delta_c, 0.0);
+            Conj_grad(Hessian, b, Delta_c, 0.001);
+            gsl_vector_add(c, Delta_c);
+
+            /**** Compute the correct energy after the update of F ****/
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            E0 = compute_E0(F, H, c) + 1./X[n];
+
+            /**** Fill S, H, Q and F for nuclear problem ****/
+            create_dS_dX(S, R_A, R_B);
+            one_body_dH_dX(H, R_A, R_B, X[n]);
+            build_dQ_dX(Q, R_A, R_B, X[n]);
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+
+            /**** Update X (also R_B.x is updated) ****/
+            dE0_dX = compute_dE0_dX(F, H, c, X[n]);
+            X[n + 1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[n], X[n-1]);
+            cout << "  " << endl;
+            myfile << X[n] << "    " << E0 << endl;
+
+            /**** Prepare the S, H, Q and F for new electronic problem ****/
+            create_S(S, R_A, R_B);
+            one_body_H(H, R_A, R_B);
+            build_Q(Q, R_A, R_B);
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+        }
+
+        myfile.close();
     }
+
+
 }
 
 

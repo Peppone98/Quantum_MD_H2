@@ -19,6 +19,7 @@ double update_c(gsl_matrix *F, gsl_matrix *S, gsl_vector *c, gsl_vector *c_old){
     /**** Add the remaining term ****/
     complete_evolution(S, c, c_old, lambda);
 
+    /**** Return lambda just for a check ****/
     return lambda;
 }
 
@@ -28,7 +29,7 @@ void partial_evolution(gsl_matrix *F, gsl_vector *c, gsl_vector *c_old){
     gsl_vector *tmp = gsl_vector_alloc(2*N);
     gsl_vector_memcpy(tmp, c);
 
-    /**** (1 + h)c(t+h) = 2c(t) - (1 - h)c(t-h) ****/
+    /**** (m + h*gamma_el)c(t+h) = 2c(t) - (m - h*gamma_el)c(t-h) ****/
     gsl_vector_scale(c, m);
     gsl_vector_scale(c_old, 0.5*m - 0.5*h*gamma_el);
     gsl_vector_sub(c, c_old);

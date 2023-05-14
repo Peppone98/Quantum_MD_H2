@@ -80,14 +80,24 @@ double del_nucl_dX(double alpha, double beta, double X, R R_A, R R_B);
 double dF0_dt(double t);
 double ddirect_term_dX(double alpha, double beta, R R_A, R R_B, double alpha_prime, double beta_prime, R R_A_prime, R R_B_prime, double X);
 
+
 /******** ROUTINES FOR FILLING NUCLEAR MATRICES ******/
 void create_dS_dX(gsl_matrix *S, R R_A, R R_B);
 void one_body_dH_dX(gsl_matrix *H, R R_A, R R_B, double X);
 void build_dQ_dX(double Q[2*N][2*N][2*N][2*N], R R_A, R R_B, double X);
 
+
 /********** EVOLVE X IN TIME ********/
 double evolve_X(gsl_vector *c, gsl_matrix *S, R *R_B, double lambda, double dE0_dX, double X, double X_old);
 double compute_dE0_dX(gsl_matrix *F, gsl_matrix *H, gsl_vector *c, double X);
+
+
+/********** CONJUGATE GRADIENT MINIMISATION ********/
+void Get_Hessian_and_b(gsl_matrix *Hessian, gsl_vector *b, double Q[2*N][2*N][2*N][2*N], gsl_matrix *S, gsl_matrix *F, gsl_vector *c);
+double Get_lambda_CG(gsl_matrix *F, gsl_vector *c);
+void Conj_grad(gsl_matrix *Hessian, gsl_vector *b, gsl_vector *Delta_c, double tol);
+double Get_alpha(gsl_matrix *Hessian, gsl_vector *r, gsl_vector *d);
+double Get_beta(double norm, gsl_vector *r);
 
 
 #endif

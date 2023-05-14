@@ -17,18 +17,11 @@ double evolve_X(gsl_vector *c, gsl_matrix *S, R *R_B, double lambda, double dE0_
 
     /**** Equation of motion for X ****/
     double X_new = 2.*X*M_N - X_old*(M_N - 0.5*gamma_N*h_N);
-    cout << "1) Partial X: " << X_new << endl;
-    cout << "X_old: " << X_old << endl;
-    cout << "X: " << X << endl;
-
 
     /* mysterious factor 2 */
     X_new -= 2.*h_N*h_N*(dE0_dX + lambda_tmp*norm);
-    cout << "2) Partial X: " << setprecision(5) << fixed << X_new << endl;
-    cout << "Deincrement: " << setprecision(5) << fixed << 2.*h_N*h_N*(dE0_dX + lambda_tmp*norm) << endl;
     X_new = X_new/(M_N + 0.5*gamma_N*h_N);
-    cout << "3) Partial X: " << setprecision(8) << fixed << X_new << endl;
-
+    
     /**** Update the nuclear position B ****/
     R_B->x = X_new;  
     return X_new;
