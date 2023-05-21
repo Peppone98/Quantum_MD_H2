@@ -26,7 +26,7 @@ const double gamma_N = 15.; /* nuclear damping */
 const double h = 0.1; /* electronic time scale */
 const double h_N = 43*h; /* nuclear time scale*/
 const int N = 4;
-const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492};
+const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492}; 
 const double pi = 3.141592653589793; 
 
 
@@ -98,6 +98,8 @@ double Get_lambda_CG(gsl_matrix *F, gsl_vector *c);
 void Conj_grad(gsl_matrix *Hessian, gsl_vector *b, gsl_vector *Delta_c, double tol);
 double Get_alpha(gsl_matrix *Hessian, gsl_vector *r, gsl_vector *d);
 double Get_beta(double norm, gsl_vector *r);
+double Get_norm_C_cg(gsl_matrix *S, gsl_vector *c);
+double Get_lambda_CP(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lambda_old);
 
 
 #endif

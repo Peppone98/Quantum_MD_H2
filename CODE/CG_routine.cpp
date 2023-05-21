@@ -5,7 +5,10 @@
 using namespace std;
 
 void Get_Hessian_and_b(gsl_matrix *Hessian, gsl_vector *b, double Q[2*N][2*N][2*N][2*N], gsl_matrix *S, gsl_matrix *F, gsl_vector *c){
-    double lambda = Get_lambda_CG(F, c);
+
+    /**** Here lambda_CG = C^T * F * C ****/
+    double lambda_CG = 0.0;
+    lambda_CG = Get_lambda_CG(F, c);
 
     /**** Build the Hessian ****/
     int p, q, t, s;
@@ -29,7 +32,7 @@ void Get_Hessian_and_b(gsl_matrix *Hessian, gsl_vector *b, double Q[2*N][2*N][2*
     /**** Multiply S by lambda ****/
     gsl_matrix *tmp_S = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix_memcpy(tmp_S, S);
-    gsl_matrix_scale(tmp_S, lambda);
+    gsl_matrix_scale(tmp_S, lambda_CG);
 
     /**** Subtract lambda*S and multiply by 2 ****/
     gsl_matrix_sub(Hessian, tmp_S);
@@ -112,6 +115,39 @@ double Get_beta(double norm, gsl_vector *r){
     double rr = 0.;
     gsl_blas_ddot(r, r, &rr);
     return rr/norm;
+}
+
+
+double Get_norm_C_cg(gsl_matrix *S, gsl_vector *c){
+    double norm;
+    gsl_vector *tmp = gsl_vector_alloc(2*N);
+    gsl_blas_dgemv(CblasNoTrans, 1., S, c, 0., tmp);
+    gsl_blas_ddot(c, tmp, &norm);
+    return norm;
+}
+
+
+double Get_lambda_CP(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lambda_old){
+    /**** lambda_old is the lambda_CP of the previous iteration ****/
+    double lambda=0., A=0., B=0., C=0.;
+
+    /**** Add to c the part with lambda_old ****/
+    gsl_vector *tmp = gsl_vector_alloc(2*N);
+    gsl_blas_dgemv(CblasNoTrans, h*h*lambda_old, S, c_old, 0., tmp);
+    gsl_vector_memcpy(c_old, c);
+    gsl_vector_add(c, tmp);
+    gsl_vector_free(tmp);
+    
+    /**** Find lambda ****/
+    A = get_A(c_old, S);
+    B = get_B(c, c_old, S);
+    C = get_C(c, S);
+    lambda = lowest_positive_root(A, B, C);
+
+    /**** Now adjust c ****/
+    complete_evolution(S, c, c_old, lambda);
+
+    return lambda;
 }
 
 

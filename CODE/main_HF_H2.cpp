@@ -101,7 +101,9 @@ int main (int argc, char *argv[]){
     if(string(argv[1]) == "MD_Car_Parrinello"){
 
         ofstream myfile;
+        ofstream coeff_file;
 	    myfile.open("CP_X_energies.txt", ios :: out | ios :: trunc);
+        coeff_file.open("CP_coeff.txt", ios :: out | ios :: trunc);
 
         for(n=1; n<CP_iter-1; n++){
 
@@ -118,6 +120,12 @@ int main (int argc, char *argv[]){
                 lambda = update_c(F, S, c, c_old);
             }
 
+            /**** Print the coefficients to file ****/
+            for(int i=0; i<2*N; i++){
+                coeff_file << gsl_vector_get(c, i) <<  "    ";
+            }
+            coeff_file << endl;
+
             /**** Compute the correct energy after the update of F ****/
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
@@ -139,6 +147,7 @@ int main (int argc, char *argv[]){
         }
 
         myfile.close();
+        coeff_file.close();
     }
 
 
@@ -151,55 +160,98 @@ int main (int argc, char *argv[]){
             lambda = update_c(F, S, c, c_old);
         }
 
+        double lambda_CP = 0.0, E_final = 0.0, E_initial = 0.0;
+
         /**** Fill the Hessian and b (minus the gradient of E) ****/
         gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
         gsl_vector *b = gsl_vector_alloc(2*N);
         Get_Hessian_and_b(Hessian, b, Q, S, F, c);
 
-        double E_initial = compute_E0(F, H, c);
+        /**** Compute the energy before minimisation ****/
+        E_initial = compute_E0(F, H, c);
 
-        /**** Define the increment Delta_c and then apply the CG routine ****/
+        /**** Apply the CG routine to get the increment Delta_c ****/
         gsl_vector *Delta_c = gsl_vector_alloc(2*N);
         gsl_vector_set_all(Delta_c, 0.0);
         Conj_grad(Hessian, b, Delta_c, 0.001);
+
+        cout << "Vector of Delta_C_cg: " << endl;
+        for(n=0; n<2*N; n++){
+            cout << gsl_vector_get(Delta_c, n) << endl;
+        }
+        
+        /**** Copy c in c_old and get the new vector ****/
+        gsl_vector_memcpy(c_old, c);
         gsl_vector_add(c, Delta_c);
 
-        cout << "Vector of coefficients: " << endl;
+        cout << "Vector of coefficients resulting from CG alone: " << endl;
         for(n=0; n<2*N; n++){
             cout << gsl_vector_get(c, n) << endl;
         }
+        
+        /**** Update the c (in CP fashion) ****/
+        lambda_CP = Get_lambda_CP(S, c, c_old, lambda);
+        E_final = compute_E0(F, H, c);
+        norm = Get_norm_C_cg(S, c);
 
-        double E_final = compute_E0(F, H, c);
-        cout << E_final - E_initial << endl;
+        cout << "Initial energy: " << E_initial << endl;
+        cout << "Energy difference (should be negative!): " << E_final - E_initial << endl;
+        cout << "Normalisation: " << norm << endl;
+        cout << "Gap between lambdas: " << lambda_CP - lambda << endl;
 
     }
 
     
-    /**** 4) CONJUGATE GRADIENT - CAR PARRINELLO ****/
+    /**** 4) CONJUGATE GRADIENT - NUCLEI MOTION WITH CP ****/
     if(string(argv[1]) == "CG_CP"){
 
         /**** Start with little equilibration cycle ****/
-        for(n=0; n<25; n++){
+        for(n=0; n<35; n++){
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
             lambda = update_c(F, S, c, c_old);
         }
+        
+        /**** The first lambda_CP comes from the CP equilibration ****/
+        double lambda_CP = lambda;
+        double E_final = 0.0, E_initial = 0.0;
 
+        /**** Open files to write the coefficients ****/
         ofstream myfile;
+        ofstream coeff_file;
 	    myfile.open("CP_CG_X.txt", ios :: out | ios :: trunc);
+        coeff_file.open("CP_CG_coeff.txt", ios :: out | ios :: trunc);
+
+        gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
+        gsl_vector *b = gsl_vector_alloc(2*N);
+        gsl_vector *Delta_c = gsl_vector_alloc(2*N);
 
         for(n=1; n<CP_iter-1; n++){
 
+            /**** Print the coefficients to file ****/
+            for(int i=0; i<2*N; i++){
+                coeff_file << gsl_vector_get(c, i) <<  "    ";
+            }
+            coeff_file << endl;
+
+            /**** Compute the energy before minimisation ****/
+            E_initial = compute_E0(F, H, c);
+
             /**** Fill the Hessian and b (minus the gradient of E) ****/
-            gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
-            gsl_vector *b = gsl_vector_alloc(2*N);
             Get_Hessian_and_b(Hessian, b, Q, S, F, c);
 
-            /**** Define the increment Delta_c and then apply the CG routine ****/
-            gsl_vector *Delta_c = gsl_vector_alloc(2*N);
+            /**** Apply the CG routine the increment Delta_c ****/
             gsl_vector_set_all(Delta_c, 0.0);
             Conj_grad(Hessian, b, Delta_c, 0.001);
+
+            /**** Copy c in c_old and then update c ****/
+            gsl_vector_memcpy(c_old, c);
             gsl_vector_add(c, Delta_c);
+            E_final = compute_E0(F, H, c);
+
+            /**** Update the c (in CP fashion) ****/
+            lambda_CP = Get_lambda_CP(S, c, c_old, lambda_CP);
+            norm = Get_norm_C_cg(S, c);
 
             /**** Compute the correct energy after the update of F ****/
             two_body_F(Q, c, F);
@@ -213,11 +265,14 @@ int main (int argc, char *argv[]){
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
 
-            /**** Update X (also R_B.x is updated) ****/
+            /**** Update X using the newly computed lambda_CP ****/
             dE0_dX = compute_dE0_dX(F, H, c, X[n]);
-            X[n + 1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[n], X[n-1]);
+            X[n + 1] = evolve_X(c, S, &R_B, lambda_CP, dE0_dX, X[n], X[n-1]);
             cout << "  " << endl;
             myfile << X[n] << "    " << E0 << endl;
+            cout << "lambda_CP: " << lambda_CP << endl;
+            cout << "normalisation: " << norm << endl;
+            cout << "Energy difference (should be negative!): " << E_final - E_initial << endl;
 
             /**** Prepare the S, H, Q and F for new electronic problem ****/
             create_S(S, R_A, R_B);
@@ -228,9 +283,53 @@ int main (int argc, char *argv[]){
         }
 
         myfile.close();
+        coeff_file.close();
     }
 
+    /**** 6) CG AND CP SUPERPOSITION ****/
+    if(string(argv[1]) == "CG_CP_superposition"){
+        int i, j;
+        ofstream scal_prod_file;
+        scal_prod_file.open("scal_prod.txt");
 
+        /**** Open the file stream ****/ 
+        ifstream CG_file;
+        ifstream CP_file;
+        CG_file.open("CP_CG_coeff.txt");
+        CP_file.open("CP_coeff.txt");
+
+        /**** Check if opening a file failed ****/ 
+        if (CG_file.fail()) {
+            cout << "Error opening the coefficients file" << endl;
+            exit(1);
+        }else{
+            double c_CG[2*N], c_CP[2*N];
+            double scal_prod = 0.;
+            string line;
+
+            /**** Read the lines of the two files ****/
+            while(getline(CG_file, line)){
+                for(i=0; i<2*N; i++){
+                    CG_file >> c_CG[i];
+                    CP_file >> c_CP[i];
+                }
+
+                /**** Compute the scalar product using S ****/
+                scal_prod = 0.;
+                for(i=0; i<2*N; i++){
+                    for(j=0; j<2*N; j++){
+                        scal_prod += gsl_matrix_get(S, i, j)*c_CP[i]*c_CG[j];
+                    }
+                }
+                scal_prod_file << scal_prod << endl;
+            }
+            cout << "File scal_prod.txt successfully written" << endl;
+        }
+        CG_file.close();
+        CP_file.close();
+        scal_prod_file.close();
+    }
+    
 }
 
 

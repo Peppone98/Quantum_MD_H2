@@ -51,8 +51,7 @@ void complete_evolution(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double 
     gsl_vector *tmp = gsl_vector_alloc(2*N);
 
     /**** c(t+h) - lambda*h^2*Sc(t) ****/
-    gsl_blas_dgemv(CblasNoTrans, 1., S, c_old, 0., tmp);
-    gsl_vector_scale(tmp, h*h*lambda);
+    gsl_blas_dgemv(CblasNoTrans, h*h*lambda, S, c_old, 0., tmp);
     gsl_vector_sub(c, tmp);
 }
 
