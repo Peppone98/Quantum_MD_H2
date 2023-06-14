@@ -30,6 +30,7 @@ const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492};
 const double pi = 3.141592653589793; 
 
 
+
 /******** ROUTINES FOR MATRIX ELEMENTS *****/
 double scalar_prod(R R_A, R R_B);
 double K(double alpha, double beta, R R_A, R R_B);
@@ -101,5 +102,15 @@ double Get_beta(double norm, gsl_vector *r);
 double Get_norm_C_cg(gsl_matrix *S, gsl_vector *c);
 double Get_lambda_CP(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lambda_old);
 
+
+/********** EXCHANGE CORRELATION PART ***********/
+double func(double x, void * params);
+double outIntegr(double rho, void * params);
+double integrate(double alpha, double beta, double quadrant);
+void create_Ex_Corr(gsl_matrix *V_xc, R R_A, R R_B, gsl_vector *c);
+void copy_global_variables(R R_A, R R_B, gsl_vector *c);
+double density(double rho, double x);
+double phi(double rho, double x, int alpha, R R);
+double phi_product(double rho, double x, double alpha, double beta, double quadrant);
 
 #endif

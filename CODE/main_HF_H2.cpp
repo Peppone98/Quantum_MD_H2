@@ -19,6 +19,8 @@ int main (int argc, char *argv[]){
 	gsl_vector *c = gsl_vector_alloc(2*N);
     gsl_vector *c_old = gsl_vector_alloc(2*N);
 	gsl_vector_set_all(c, 1.);
+    gsl_matrix *V_xc = gsl_matrix_alloc(2*N, 2*N);
+
 
     /**** Initial nuclei positions ****/
     R_A.x = 0., R_A.y = 0., R_A.z = 0.;
@@ -39,10 +41,20 @@ int main (int argc, char *argv[]){
     double norm = normalization(c, S);
     gsl_vector_memcpy(c_old, c);
 	
+
+
+
+
+
+    /**** List of options ****/
+
+
+
+
     
     /**** 1) SELF-CONSISTENT HARTREE-FOCK ****/
     if (string(argv[1]) == "SC_Hartree_Fock"){
-        cout << "Hartree-Fock energies: " << endl;
+        std::cout << "Hartree-Fock energies: " << endl;
 
         for(n=0; n<n_iter; n++){
 
@@ -54,25 +66,36 @@ int main (int argc, char *argv[]){
             gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
             gsl_matrix_memcpy(tmp_F, F);
             E_1s = solve_FC_eSC(tmp_F, V, U);
-            cout << E_1s << endl;
+            std::cout << E_1s << endl;
 
             /**** Get the c vector from eigenvector matrix U ****/
             gsl_matrix_get_col(c, U, 0);
         }
 
         /**** Print the coefficients ****/
-        cout << "   " << endl;
-        cout << "Vector of coefficients" << endl;
+        std::cout << "   " << endl;
+        std::cout << "Vector of coefficients" << endl;
         for(n=0; n<2*N; n++){
-            cout << gsl_vector_get(c, n) << endl;
+            std::cout << gsl_vector_get(c, n) << endl;
         }
         
         /**** Print orbital and HF energy ****/
         print_orbital(c, R_A, R_B);
-        cout << "   " << endl;
-        cout << "Total HF energy" << endl;
-        cout << compute_E0(F, H, c) + 1./X[0] << endl; 	
+        std::cout << "   " << endl;
+        std::cout << "Total HF energy" << endl;
+        std::cout << compute_E0(F, H, c) + 1./X[0] << endl; 	
 	}
+
+
+
+
+
+
+
+
+
+
+
 
 
     /**** 2) EVOLUTION OF THE COEFFICIENTS C(t) AT FIXED X ****/
@@ -90,20 +113,29 @@ int main (int argc, char *argv[]){
         myfile.close();
 
         /**** Print the coefficients ****/
-        cout << "Vector of coefficients: " << endl;
+        std::cout << "Vector of coefficients: " << endl;
         for(n=0; n<2*N; n++){
-            cout << gsl_vector_get(c, n) << endl;
+            std::cout << gsl_vector_get(c, n) << endl;
         }
     }
+
+
+
+
+
+
+
 
 
     /**** 3) CAR PARRINELLO MOLECULAR DYNAMICS ****/
     if(string(argv[1]) == "MD_Car_Parrinello"){
 
-        ofstream myfile;
+        string X_en = "MD_CP_X_energies.txt";
+        string coeff = "MD_CP_coeff.txt";
+        ofstream X_en_file;
         ofstream coeff_file;
-	    myfile.open("CP_X_energies.txt", ios :: out | ios :: trunc);
-        coeff_file.open("CP_coeff.txt", ios :: out | ios :: trunc);
+	    X_en_file.open(X_en, ios :: out | ios :: trunc);
+        coeff_file.open(coeff, ios :: out | ios :: trunc);
 
         for(n=1; n<CP_iter-1; n++){
 
@@ -141,14 +173,32 @@ int main (int argc, char *argv[]){
             /**** Update X (also R_B.x is updated) ****/
             dE0_dX = compute_dE0_dX(F, H, c, X[n]);
             X[n + 1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[n], X[n-1]);
-            cout << "  " << endl;
-            myfile << X[n] << "    " << E0 << endl;
-
+            std::cout << "  " << endl;
+            X_en_file << X[n] << "    " << E0 << endl;
         }
 
-        myfile.close();
+        X_en_file.close();
         coeff_file.close();
+
+        std::cout << "Car-Parrinello Molecular Dynamics has been executed for " << CP_iter << " steps" << endl;
+        std::cout << "  " << endl;
+        std::cout << "Parameters of the simulation: " << endl;
+        std::cout << "Electronic step h: " << h << endl;
+        std::cout << "Nuclear step h_N: " << h_N << endl;
+        std::cout << "Electronic fictitious mass: " << m << endl;
+        std::cout << "Nuclear mass: " << M_N << endl;
+        std::cout << "Electronic damping: " << gamma_el << endl;
+        std::cout << "Nuclear damping: " << gamma_N << endl;
+        std::cout << "  " << endl;
+        std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
+        std::cout << "The C coefficients have been written to " << coeff << endl;
     }
+
+
+
+
+
+
 
 
     /**** 4) CONJUGATE GRADIENT (SINGLE RUN) ****/
@@ -175,18 +225,19 @@ int main (int argc, char *argv[]){
         gsl_vector_set_all(Delta_c, 0.0);
         Conj_grad(Hessian, b, Delta_c, 0.001);
 
-        cout << "Vector of Delta_C_cg: " << endl;
+        /**** Print the increment ****/
+        std::cout << "Vector of Delta_C_cg: " << endl;
         for(n=0; n<2*N; n++){
-            cout << gsl_vector_get(Delta_c, n) << endl;
+            std::cout << gsl_vector_get(Delta_c, n) << endl;
         }
         
         /**** Copy c in c_old and get the new vector ****/
         gsl_vector_memcpy(c_old, c);
         gsl_vector_add(c, Delta_c);
 
-        cout << "Vector of coefficients resulting from CG alone: " << endl;
+        std::cout << "Vector of coefficients resulting from CG alone: " << endl;
         for(n=0; n<2*N; n++){
-            cout << gsl_vector_get(c, n) << endl;
+            std::cout << gsl_vector_get(c, n) << endl;
         }
         
         /**** Update the c (in CP fashion) ****/
@@ -194,18 +245,23 @@ int main (int argc, char *argv[]){
         E_final = compute_E0(F, H, c);
         norm = Get_norm_C_cg(S, c);
 
-        cout << "Initial energy: " << E_initial << endl;
-        cout << "Energy difference (should be negative!): " << E_final - E_initial << endl;
-        cout << "Normalisation: " << norm << endl;
-        cout << "Gap between lambdas: " << lambda_CP - lambda << endl;
+        std::cout << "Initial energy: " << E_initial << endl;
+        std::cout << "Energy difference (should be negative!): " << E_final - E_initial << endl;
+        std::cout << "Normalisation: " << norm << endl;
+        std::cout << "Gap between lambdas: " << lambda_CP - lambda << endl;
 
     }
 
     
+
+
+
+
+
     /**** 4) CONJUGATE GRADIENT - NUCLEI MOTION WITH CP ****/
     if(string(argv[1]) == "CG_CP"){
 
-        /**** Start with little equilibration cycle ****/
+        /**** Start with little equilibration cycle with CPMD ****/
         for(n=0; n<35; n++){
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
@@ -214,14 +270,19 @@ int main (int argc, char *argv[]){
         
         /**** The first lambda_CP comes from the CP equilibration ****/
         double lambda_CP = lambda;
-        double E_final = 0.0, E_initial = 0.0;
 
-        /**** Open files to write the coefficients ****/
-        ofstream myfile;
+        /**** Threshold for conjugate gradient convergence ****/
+        double eps = 0.001;
+
+        /**** Open files to write the X, energies and coefficients ****/
+        string X_en = "CG_CP_X_energies.txt";
+        string coeff = "CG_CP_coeff.txt";
+        ofstream X_en_file;
         ofstream coeff_file;
-	    myfile.open("CP_CG_X.txt", ios :: out | ios :: trunc);
-        coeff_file.open("CP_CG_coeff.txt", ios :: out | ios :: trunc);
+	    X_en_file.open(X_en, ios :: out | ios :: trunc);
+        coeff_file.open(coeff, ios :: out | ios :: trunc);
 
+        /**** Create Hessian, b, and increment of C ****/
         gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
         gsl_vector *b = gsl_vector_alloc(2*N);
         gsl_vector *Delta_c = gsl_vector_alloc(2*N);
@@ -234,20 +295,16 @@ int main (int argc, char *argv[]){
             }
             coeff_file << endl;
 
-            /**** Compute the energy before minimisation ****/
-            E_initial = compute_E0(F, H, c);
-
             /**** Fill the Hessian and b (minus the gradient of E) ****/
             Get_Hessian_and_b(Hessian, b, Q, S, F, c);
 
-            /**** Apply the CG routine the increment Delta_c ****/
+            /**** Apply the CG routine to get the increment Delta_c ****/
             gsl_vector_set_all(Delta_c, 0.0);
-            Conj_grad(Hessian, b, Delta_c, 0.001);
+            Conj_grad(Hessian, b, Delta_c, eps);
 
-            /**** Copy c in c_old and then update c ****/
+            /**** Copy c in c_old and then update c (adding Delta_c) ****/
             gsl_vector_memcpy(c_old, c);
             gsl_vector_add(c, Delta_c);
-            E_final = compute_E0(F, H, c);
 
             /**** Update the c (in CP fashion) ****/
             lambda_CP = Get_lambda_CP(S, c, c_old, lambda_CP);
@@ -268,11 +325,10 @@ int main (int argc, char *argv[]){
             /**** Update X using the newly computed lambda_CP ****/
             dE0_dX = compute_dE0_dX(F, H, c, X[n]);
             X[n + 1] = evolve_X(c, S, &R_B, lambda_CP, dE0_dX, X[n], X[n-1]);
-            cout << "  " << endl;
-            myfile << X[n] << "    " << E0 << endl;
-            cout << "lambda_CP: " << lambda_CP << endl;
-            cout << "normalisation: " << norm << endl;
-            cout << "Energy difference (should be negative!): " << E_final - E_initial << endl;
+            std::cout << "  " << endl;
+            X_en_file << X[n] << "    " << E0 << endl;
+            std::cout << "lambda_CP: " << lambda_CP << endl;
+            std::cout << "normalisation: " << norm << endl;
 
             /**** Prepare the S, H, Q and F for new electronic problem ****/
             create_S(S, R_A, R_B);
@@ -282,9 +338,26 @@ int main (int argc, char *argv[]){
             gsl_matrix_add(F, H);
         }
 
-        myfile.close();
+        X_en_file.close();
         coeff_file.close();
+
+        std::cout << "Car-Parrinello with conjugate gradient has been executed for " << CP_iter << " steps" << endl;
+        std::cout << "  " << endl;
+        std::cout << "Parameters of the simulation: " << endl;
+        std::cout << "Nuclear step h_N: " << h_N << endl;
+        std::cout << "Nuclear mass: " << M_N << endl;
+        std::cout << "Nuclear damping: " << gamma_N << endl;
+        std::cout << "  " << endl;
+        std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
+        std::cout << "The C coefficients have been written to " << coeff << endl;
     }
+
+
+
+
+
+
+
 
     /**** 6) CG AND CP SUPERPOSITION ****/
     if(string(argv[1]) == "CG_CP_superposition"){
@@ -293,14 +366,16 @@ int main (int argc, char *argv[]){
         scal_prod_file.open("scal_prod.txt");
 
         /**** Open the file stream ****/ 
+        string CG = "CG_CP_coeff.txt";
+        string MD = "MD_CP_coeff.txt";
         ifstream CG_file;
         ifstream CP_file;
-        CG_file.open("CP_CG_coeff.txt");
-        CP_file.open("CP_coeff.txt");
+        CG_file.open(CG);
+        CP_file.open(MD);
 
         /**** Check if opening a file failed ****/ 
-        if (CG_file.fail()) {
-            cout << "Error opening the coefficients file" << endl;
+        if (CG_file.fail() || CP_file.fail()) {
+            std::cout << "Error opening the coefficients file" << endl;
             exit(1);
         }else{
             double c_CG[2*N], c_CP[2*N];
@@ -323,13 +398,57 @@ int main (int argc, char *argv[]){
                 }
                 scal_prod_file << scal_prod << endl;
             }
-            cout << "File scal_prod.txt successfully written" << endl;
+            std::cout << "Coefficients files " << MD << " and " << CG << " successfully read" << endl;
+            std::cout << "File scal_prod.txt successfully written" << endl;
         }
         CG_file.close();
         CP_file.close();
         scal_prod_file.close();
     }
     
+
+
+
+
+
+
+
+    /**** 7) EXCHANGE AND CORRELATION PART ****/
+    if(string(argv[1]) == "EX_CORR"){
+        /**** Little equilibration cycle with CPMD ****/
+        for(n=0; n<35; n++){
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
+
+        double params[4];
+        params[0] = 0.1;
+        params[1] = a[1];
+        params[2] = a[2];
+        params[3] = 1.0;
+
+        copy_global_variables(R_A, R_B, c);
+        cout << "R_global_A.x: " << R_global_A.x << endl;
+        cout << "func: " << func(0.3, params) << endl;
+
+        cout << "Integrate: " << integrate(a[1], a[2], 1.0) << endl;
+
+        /**** Create the XC matrix ****/
+        /*create_Ex_Corr(V_xc, R_A, R_B, c);
+
+        std::cout << "Matrix V_xc: " << endl;
+        for(int k=0; k<2*N; k++){
+            for(int j=0; j<2*N; j++){
+                std::cout << gsl_matrix_get(V_xc, k, j) << "   ";
+            }
+            std::cout << "  " << endl;
+        }*/
+    }
+
+
+
+    /**** End of the main function ****/
 }
 
 

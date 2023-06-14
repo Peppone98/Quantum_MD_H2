@@ -59,6 +59,7 @@ double Get_lambda_CG(gsl_matrix *F, gsl_vector *c){
 }
 
 
+
 void Conj_grad(gsl_matrix *Hessian, gsl_vector *b, gsl_vector *Delta_c, double tol){
     double norm = 0., alpha = 0., beta = 0.;
     int iter = 0;
@@ -98,6 +99,7 @@ void Conj_grad(gsl_matrix *Hessian, gsl_vector *b, gsl_vector *Delta_c, double t
 }
 
 
+
 double Get_alpha(gsl_matrix *Hessian, gsl_vector *r, gsl_vector *d){
     /**** Return alpha factor for the update of c and r ****/
     double rr = 0., dHd = 0.;
@@ -110,12 +112,14 @@ double Get_alpha(gsl_matrix *Hessian, gsl_vector *r, gsl_vector *d){
 }
 
 
+
 double Get_beta(double norm, gsl_vector *r){
     /**** Beta is computed after the update of r ****/
     double rr = 0.;
     gsl_blas_ddot(r, r, &rr);
     return rr/norm;
 }
+
 
 
 double Get_norm_C_cg(gsl_matrix *S, gsl_vector *c){
@@ -125,6 +129,7 @@ double Get_norm_C_cg(gsl_matrix *S, gsl_vector *c){
     gsl_blas_ddot(c, tmp, &norm);
     return norm;
 }
+
 
 
 double Get_lambda_CP(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lambda_old){
