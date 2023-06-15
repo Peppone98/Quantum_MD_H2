@@ -1,15 +1,11 @@
 /********** EXCHANGE AND CORRELATION PART DFT ********/
 
 #include "definitions.h"
+#include "global.h"
 #include "xc.h"
 #include "gsl/gsl_integration.h"
 
 using namespace std;
-
-/**** Global variables: these are kept constant ****/
-/**** in the calculation of the XC matrix ****/
-R R_global_A, R_global_B;
-gsl_vector *c_global = gsl_vector_alloc(2*N);
 
 
 void copy_global_variables(R R_A, R R_B, gsl_vector *c){
@@ -85,11 +81,8 @@ double func(double x, void * params){
     /**** The quadrant can be 1.0, 2.0, 3.0, 4.0 ****/
     double quadrant = (( double *) params)[3];
 
-    cout << "alpha: " << alpha << endl;
-
     /**** Compute the needed quantities ****/
     double n = density(rho, x);
-    cout << "Density: " << n << endl;
 
     /**** Compute the e_xc and its derivative de/dn ****/
     double e_x=0.0, e_c=0.0, dex_dn=0.0, dec_dn=0.0;
@@ -119,7 +112,7 @@ double outIntegr(double rho, void * params){
     ((double *) params)[0] = rho;
 
     /**** Initialize the workspace for integration over x ****/
-    int WRKSPC_SIZE = 100;
+    int WRKSPC_SIZE = 50;
     gsl_integration_workspace *wrkspc = gsl_integration_workspace_alloc(WRKSPC_SIZE);
     double result = 0.0, error = 0.0;
 
@@ -129,7 +122,7 @@ double outIntegr(double rho, void * params){
     intgr_func.params = params;
 
     /**** Integration over x in [-2, 3] using quadrature ****/
-    gsl_integration_qags(&intgr_func, -2, 3, 0, 1e-7, WRKSPC_SIZE, wrkspc, &result, &error);
+    gsl_integration_qags(&intgr_func, -2, 3, 0, 1e-3, WRKSPC_SIZE, wrkspc, &result, &error);
     gsl_integration_workspace_free(wrkspc);
     return result;
 }
@@ -145,7 +138,7 @@ double integrate(double alpha, double beta, double quadrant){
     params[3] = quadrant;
 
     /**** Allocate space for integration over rho ****/
-    int WRKSPC_SIZE = 100;
+    int WRKSPC_SIZE = 50;
     gsl_integration_workspace *wrkspc = gsl_integration_workspace_alloc(WRKSPC_SIZE);
     double result = 0.0, error = 0.0;
 
@@ -154,10 +147,8 @@ double integrate(double alpha, double beta, double quadrant){
     intgr_func.function = &outIntegr;
     intgr_func.params = params;
 
-    cout << "beta: " << params[2] << endl;
-
     /**** Integration over rho ****/
-    gsl_integration_qags(&intgr_func, 0, 3, 0, 1e-7, WRKSPC_SIZE, wrkspc, &result, &error);
+    gsl_integration_qags(&intgr_func, 0, 3, 0, 1e-3, WRKSPC_SIZE, wrkspc, &result, &error);
     gsl_integration_workspace_free(wrkspc);
     return result;
 }

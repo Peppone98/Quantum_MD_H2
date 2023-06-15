@@ -1,6 +1,12 @@
 #include "definitions.h"
+#include "global.h"
 
 using namespace std;
+
+/**** Global variables defined as "extern" in global.h ****/
+R R_global_A, R_global_B;
+gsl_vector *c_global = gsl_vector_alloc(2*N);
+
 
 int main (int argc, char *argv[]){
 
@@ -90,6 +96,46 @@ int main (int argc, char *argv[]){
 
 
 
+
+
+
+
+    /**** 1.5) SELF-CONSISTENT DFT ****/
+    if (string(argv[1]) == "SC_DFT"){
+        cout << "DFT energies: " << endl;
+
+        for(n=0; n<n_iter; n++){
+
+            /**** Build Fock matrix with additional exchange-correlation part ****/
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            copy_global_variables(R_A, R_B, c);
+            create_Ex_Corr(V_xc, R_A, R_B, c);
+            gsl_matrix_add(F, V_xc);
+
+            /**** tmp_F is needed beacuse solve_FC_eSC destroys lower part of F ****/
+            gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
+            gsl_matrix_memcpy(tmp_F, F);
+            E_1s = solve_FC_eSC(tmp_F, V, U);
+            cout << E_1s << endl;
+
+            /**** Get the c vector from eigenvector matrix U ****/
+            gsl_matrix_get_col(c, U, 0);
+        }
+
+        /**** Print the coefficients ****/
+        cout << "   " << endl;
+        cout << "Vector of coefficients" << endl;
+        for(n=0; n<2*N; n++){
+            cout << gsl_vector_get(c, n) << endl;
+        }
+        
+        /**** Print orbital and HF energy ****/
+        print_orbital(c, R_A, R_B);
+        cout << "   " << endl;
+        cout << "Total HF energy" << endl;
+        cout << compute_E0(F, H, c) + 1./X[0] << endl;  
+    }
 
 
 
@@ -413,6 +459,8 @@ int main (int argc, char *argv[]){
 
 
 
+
+
     /**** 7) EXCHANGE AND CORRELATION PART ****/
     if(string(argv[1]) == "EX_CORR"){
         /**** Little equilibration cycle with CPMD ****/
@@ -429,13 +477,10 @@ int main (int argc, char *argv[]){
         params[3] = 1.0;
 
         copy_global_variables(R_A, R_B, c);
-        cout << "R_global_A.x: " << R_global_A.x << endl;
-        cout << "func: " << func(0.3, params) << endl;
-
-        cout << "Integrate: " << integrate(a[1], a[2], 1.0) << endl;
+        
 
         /**** Create the XC matrix ****/
-        /*create_Ex_Corr(V_xc, R_A, R_B, c);
+        create_Ex_Corr(V_xc, R_A, R_B, c);
 
         std::cout << "Matrix V_xc: " << endl;
         for(int k=0; k<2*N; k++){
@@ -443,7 +488,7 @@ int main (int argc, char *argv[]){
                 std::cout << gsl_matrix_get(V_xc, k, j) << "   ";
             }
             std::cout << "  " << endl;
-        }*/
+        }
     }
 
 
