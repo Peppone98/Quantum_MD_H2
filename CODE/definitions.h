@@ -104,13 +104,11 @@ double Get_lambda_CP(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lam
 
 
 /********** EXCHANGE CORRELATION PART ***********/
-double func(double x, void * params);
-double outIntegr(double rho, void * params);
-double integrate(double alpha, double beta, double quadrant);
-void create_Ex_Corr(gsl_matrix *V_xc, R R_A, R R_B, gsl_vector *c);
-void copy_global_variables(R R_A, R R_B, gsl_vector *c);
-double density(double rho, double x);
-double phi(double rho, double x, int alpha, R R);
-double phi_product(double rho, double x, double alpha, double beta, double quadrant);
+double density(double rho, double z, gsl_vector *c, double X);
+double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
+double Simpson_rho(double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
+double Simpson_z(double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
+void create_Ex_Corr(gsl_matrix *V_xc, R R_A, R R_B, gsl_vector *c, double X);
+
 
 #endif

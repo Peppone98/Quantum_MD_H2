@@ -1,11 +1,6 @@
 #include "definitions.h"
-#include "global.h"
 
 using namespace std;
-
-/**** Global variables defined as "extern" in global.h ****/
-R R_global_A, R_global_B;
-gsl_vector *c_global = gsl_vector_alloc(2*N);
 
 
 int main (int argc, char *argv[]){
@@ -100,6 +95,7 @@ int main (int argc, char *argv[]){
 
 
 
+
     /**** 1.5) SELF-CONSISTENT DFT ****/
     if (string(argv[1]) == "SC_DFT"){
         cout << "DFT energies: " << endl;
@@ -109,8 +105,7 @@ int main (int argc, char *argv[]){
             /**** Build Fock matrix with additional exchange-correlation part ****/
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
-            copy_global_variables(R_A, R_B, c);
-            create_Ex_Corr(V_xc, R_A, R_B, c);
+            create_Ex_Corr(V_xc, R_A, R_B, c, X[n]);
             gsl_matrix_add(F, V_xc);
 
             /**** tmp_F is needed beacuse solve_FC_eSC destroys lower part of F ****/
@@ -136,6 +131,9 @@ int main (int argc, char *argv[]){
         cout << "Total HF energy" << endl;
         cout << compute_E0(F, H, c) + 1./X[0] << endl;  
     }
+
+
+
 
 
 
@@ -459,8 +457,6 @@ int main (int argc, char *argv[]){
 
 
 
-
-
     /**** 7) EXCHANGE AND CORRELATION PART ****/
     if(string(argv[1]) == "EX_CORR"){
         /**** Little equilibration cycle with CPMD ****/
@@ -470,17 +466,9 @@ int main (int argc, char *argv[]){
             lambda = update_c(F, S, c, c_old);
         }
 
-        double params[4];
-        params[0] = 0.1;
-        params[1] = a[1];
-        params[2] = a[2];
-        params[3] = 1.0;
-
-        copy_global_variables(R_A, R_B, c);
         
-
         /**** Create the XC matrix ****/
-        create_Ex_Corr(V_xc, R_A, R_B, c);
+        create_Ex_Corr(V_xc, R_A, R_B, c, X[0]);
 
         std::cout << "Matrix V_xc: " << endl;
         for(int k=0; k<2*N; k++){
@@ -492,10 +480,5 @@ int main (int argc, char *argv[]){
     }
 
 
-
     /**** End of the main function ****/
 }
-
-
-
-
