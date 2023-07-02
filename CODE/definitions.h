@@ -109,6 +109,8 @@ double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, 
 double Simpson_rho(double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
 double Simpson_z(double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
 void create_Ex_Corr(gsl_matrix *V_xc, R R_A, R R_B, gsl_vector *c, double X);
+void Print_density(gsl_vector *c, double X);
+void Print_integrand(int p, int q, R R_A, R R_B, gsl_vector *c, double X);
 
 
 #endif

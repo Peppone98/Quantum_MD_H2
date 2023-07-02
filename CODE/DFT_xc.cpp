@@ -12,7 +12,7 @@ double density(double rho, double z, gsl_vector *c, double X){
     int p, q;
     double c_p, c_q;
 
-    /**** Return the value of n(rho, z), which is needed for e_c(n) ****/
+    /**** Return the value of n(rho, z), which is needed for the v_xc(n) ****/
     for(p=0; p<N; p++){
         for(q=0; q<N; q++){
             c_p = gsl_vector_get(c, p);
@@ -48,7 +48,7 @@ double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, 
     double dE_dn = dEx_dn + dEc_dn;
 
     /**** Compute correlation energy density ****/
-    double prefactor = 2.*pi*K(alpha, beta, R_A, R_B);
+    double prefactor = K(alpha, beta, R_A, R_B);
     R R_C = R_weighted(alpha, beta, R_A, R_B);
 
     /**** The motion is restricted to the x-axis, so we consider only R_C.x ****/
@@ -60,14 +60,14 @@ double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, 
 double Simpson_rho(double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X){
     /**** Extremes of integration ****/
     double a = 0.0;
-    double b = 2.0;
+    double b = 1.0;
     
     /**** First and last points ****/
     double f_a = Integrand(a, z, alpha, beta, R_A, R_B, c, X);
     double f_b = Integrand(b, z, alpha, beta, R_A, R_B, c, X);
 
     /**** Set the mesh resolution ****/
-    int i, N_mesh = 50;
+    int i, N_mesh = 100;
     double drho = (b-a)/N_mesh;
 
     /**** Simpson integration ****/
@@ -103,7 +103,9 @@ double Simpson_z(double alpha, double beta, R R_A, R R_B, gsl_vector *c, double 
     /**** Simpson integration ****/
     double z = 0.0, Simpson_sum = 0.0, f_i = 0.0, f_i_plus_1 = 0.0;
     for(i=1; i<=N_mesh-1; i=i+2){
-        z = i*dz;
+    	
+    	/**** The z coordinate starts at a finite value ****/
+        z = a + i*dz;
         f_i = Simpson_rho(z, alpha, beta, R_A, R_B, c, X);
         f_i_plus_1 = Simpson_rho(z + dz, alpha, beta, R_A, R_B, c, X);
         Simpson_sum = Simpson_sum + (4.*f_i + 2.*f_i_plus_1);
@@ -115,19 +117,21 @@ double Simpson_z(double alpha, double beta, R R_A, R R_B, gsl_vector *c, double 
 
 
 
+
 void create_Ex_Corr(gsl_matrix *V_xc, R R_A, R R_B, gsl_vector *c, double X){
 	int p, q;
 	double val1=0., val2=0.;
 	for(p=0; p<N; p++){
 		for(q=0; q<=p; q++){ 
 
-			val1 = Simpson_z(a[p], a[q], R_A, R_A, c, X);
+            /**** Factor 2*pi due to the integration over theta ****/
+			val1 = 2.0*pi*Simpson_z(a[p], a[q], R_A, R_A, c, X);
 	        gsl_matrix_set(V_xc, p, q, val1);
             gsl_matrix_set(V_xc, q, p, val1);
             gsl_matrix_set(V_xc, p + N, q + N, val1);
             gsl_matrix_set(V_xc, q + N, p + N, val1);
 
-            val2 = Simpson_z(a[p], a[q], R_A, R_B, c, X);
+            val2 = 2.0*pi*Simpson_z(a[p], a[q], R_A, R_B, c, X);
 	        gsl_matrix_set(V_xc, p, q + N, val2);
             gsl_matrix_set(V_xc, q, p + N, val2);
             gsl_matrix_set(V_xc, p + N, q, val2);
@@ -138,4 +142,67 @@ void create_Ex_Corr(gsl_matrix *V_xc, R R_A, R R_B, gsl_vector *c, double X){
 }
 
 
+
+
+void Print_density(gsl_vector *c, double X){
+    ofstream myfile;
+	myfile.open("Density.txt", ios :: out | ios :: trunc);
+
+    int i, j, N_mesh = 100;
+    double z, rho;
+
+    /**** Define the mesh for rho ****/
+    double rho_a = 0.0, rho_b = 2.0;
+    double drho = (rho_b - rho_a)/N_mesh;
+
+    /**** Define the mesh for z ****/
+    double z_a = -2.0, z_b = 3.0;
+    double dz = (z_b - z_a)/N_mesh;
+
+    for(i=0; i<N_mesh; i++){
+        rho = i*drho;
+        for(j=0; j<N_mesh; j++){
+            z = z_a + j*dz;
+            myfile << density(rho, z, c, X) << "       ";
+        }
+        myfile << "  " << endl;
+    }
+
+    myfile.close();
+}
+
+
+
+void Print_integrand(int p, int q, R R_A, R R_B, gsl_vector *c, double X){
+    string name = "Integrands/Integrand";
+    string underscore = "_";
+    string txt = ".txt";
+    string complete_name = name + to_string(p) + underscore + to_string(q) + txt;
+    ofstream myfile;
+	myfile.open(complete_name, ios :: out | ios :: trunc);
+
+    int i, j, N_mesh = 100;
+    double z, rho;
+
+    /**** Define the mesh for rho ****/
+    double rho_a = 0.0, rho_b = 2.0;
+    double drho = (rho_b - rho_a)/N_mesh;
+
+    /**** Define the mesh for z ****/
+    double m = a[p] + a[q];
+    double z_a = -1.5 - 1/m;
+    double z_b = 2.5 + 1/m;
+    double dz = (z_b - z_a)/N_mesh;
+
+    for(i=0; i<N_mesh + 10; i++){
+        rho = i*drho;
+        for(j=0; j<N_mesh; j++){
+            z = z_a + j*dz;
+            myfile << Integrand(rho, z, a[p], a[q], R_A, R_B, c, X) << "       ";
+        }
+        myfile << "  " << endl;
+    }
+
+    myfile.close();
+}
 

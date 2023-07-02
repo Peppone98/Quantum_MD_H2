@@ -45,9 +45,9 @@ int main (int argc, char *argv[]){
 
 
 
-
-
-    /**** List of options ****/
+    /**** List of options: ****/
+    /**** 1) SC_Hartree_Fock ****/
+    /**** 2) ****/
 
 
 
@@ -98,7 +98,7 @@ int main (int argc, char *argv[]){
 
     /**** 1.5) SELF-CONSISTENT DFT ****/
     if (string(argv[1]) == "SC_DFT"){
-        cout << "DFT energies: " << endl;
+        std::cout << "DFT energies: " << endl;
 
         for(n=0; n<n_iter; n++){
 
@@ -112,24 +112,24 @@ int main (int argc, char *argv[]){
             gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
             gsl_matrix_memcpy(tmp_F, F);
             E_1s = solve_FC_eSC(tmp_F, V, U);
-            cout << E_1s << endl;
+            std::cout << E_1s << endl;
 
             /**** Get the c vector from eigenvector matrix U ****/
             gsl_matrix_get_col(c, U, 0);
         }
 
         /**** Print the coefficients ****/
-        cout << "   " << endl;
-        cout << "Vector of coefficients" << endl;
+        std::cout << "   " << endl;
+        std::cout << "Vector of coefficients" << endl;
         for(n=0; n<2*N; n++){
-            cout << gsl_vector_get(c, n) << endl;
+            std::cout << gsl_vector_get(c, n) << endl;
         }
         
         /**** Print orbital and HF energy ****/
         print_orbital(c, R_A, R_B);
-        cout << "   " << endl;
-        cout << "Total HF energy" << endl;
-        cout << compute_E0(F, H, c) + 1./X[0] << endl;  
+        std::cout << "   " << endl;
+        std::cout << "Total HF energy" << endl;
+        std::cout << compute_E0(F, H, c) + 1./X[0] << endl;  
     }
 
 
@@ -477,6 +477,21 @@ int main (int argc, char *argv[]){
             }
             std::cout << "  " << endl;
         }
+
+        /**** Print density ****/
+        Print_density(c, X[0]);
+
+        /**** Print all the integrand functions defined over the (rho, z) plane ****/
+        Print_integrand(0, 0, R_A, R_B, c, X[0]);
+        Print_integrand(0, 1, R_A, R_B, c, X[0]);
+        Print_integrand(0, 2, R_A, R_B, c, X[0]);
+        Print_integrand(0, 3, R_A, R_B, c, X[0]);
+        Print_integrand(1, 1, R_A, R_B, c, X[0]);
+        Print_integrand(1, 2, R_A, R_B, c, X[0]);
+        Print_integrand(1, 3, R_A, R_B, c, X[0]);
+        Print_integrand(2, 2, R_A, R_B, c, X[0]);
+        Print_integrand(2, 3, R_A, R_B, c, X[0]);
+        Print_integrand(3, 3, R_A, R_B, c, X[0]);
     }
 
 
