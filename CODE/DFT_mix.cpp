@@ -1,10 +1,10 @@
 /********** EXCHANGE AND CORRELATION PART DFT ********/
 
 #include "definitions.h" 
+#include "gsl/gsl_integration.h"
 #include "xc.h"
 
 using namespace std;
-
 
 
 double density(double rho, double z, gsl_vector *c, double X){
@@ -29,7 +29,18 @@ double density(double rho, double z, gsl_vector *c, double X){
 
 
 
-double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X){
+double Integrand(double z, void *p){
+    /**** Get the parameters contained in the struct ****/
+    my_params *params = (my_params *)p;
+    double rho = params->rho;
+    double alpha = params->alpha;
+    double beta = params->beta;
+    R R_A = params->R_A;
+    R R_B = params->R_B;
+    gsl_vector *c = gsl_vector_alloc(2*N);
+    gsl_vector_memcpy(c, params->c);
+    double X = params->X;
+
     /**** Compute the density ****/
     double n = density(rho, z, c, X);
 
@@ -38,18 +49,16 @@ double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, 
     xc_func_type functional_x;
     xc_func_init(&functional_x, XC_LDA_X, XC_UNPOLARIZED);
     xc_lda_exc_vxc(&functional_x, 1, &n, &e_x, &dEx_dn);
-    xc_func_end(&functional_x);
 
     /**** Compute the correlation part ****/
     xc_func_type functional_c;
     xc_func_init(&functional_c, XC_LDA_C_PZ, XC_UNPOLARIZED);
     xc_lda_exc_vxc(&functional_c, 1, &n, &e_c, &dEc_dn);
-    xc_func_end(&functional_c);
 
-    /**** This dE_dn is used in the integral. Note the a_x ****/
-    double dE_dn = a_x*dEx_dn + dEc_dn;
+    /**** This quantity takes part in the integrand function ****/
+    double dE_dn = dEx_dn + dEc_dn;
 
-    /**** Compute prefactor and R_C ****/
+    /**** Compute prefactors and R_c ****/
     double prefactor = K(alpha, beta, R_A, R_B);
     R R_C = R_weighted(alpha, beta, R_A, R_B);
 
@@ -59,64 +68,55 @@ double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, 
 
 
 
-double Simpson_rho(double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X){
-    /**** Extremes of integration ****/
-    double m = alpha + beta;
-    double a = 0.0;
-    double b = 2.0 + 1/m;
-    
-    /**** First and last points ****/
-    double f_a = Integrand(a, z, alpha, beta, R_A, R_B, c, X);
-    double f_b = Integrand(b, z, alpha, beta, R_A, R_B, c, X);
 
-    /**** Set the mesh resolution ****/
-    int i, N_mesh = 100;
-    double drho = (b-a)/N_mesh;
-
-    /**** Simpson integration ****/
-    double rho = 0.0, Simpson_sum = 0.0, f_i = 0.0, f_i_plus_1 = 0.0;
-    for(i=1; i<=N_mesh-1; i=i+2){
-        rho = i*drho;
-        f_i = Integrand(rho, z, alpha, beta, R_A, R_B, c, X);
-        f_i_plus_1 = Integrand(rho + drho, z, alpha, beta, R_A, R_B, c, X);
-        Simpson_sum = Simpson_sum + (4.*f_i + 2.*f_i_plus_1);
-    }
-
-    Simpson_sum = (Simpson_sum + f_a + f_b)*(drho/3.);
-    return Simpson_sum;
+double Integrate_over_z(my_params params){
+    int WRKSPC_SIZE = 100;
+    gsl_integration_workspace *wrkspc = gsl_integration_workspace_alloc(WRKSPC_SIZE);
+    double result = 0.0, error = 0.0;
+    gsl_function intgr_func;
+    intgr_func.function = &Integrand;
+    intgr_func.params = &params;
+    gsl_integration_qagi(&intgr_func, 0, 1e-7, WRKSPC_SIZE, wrkspc, &result, &error);
+    gsl_integration_workspace_free(wrkspc);
+    return result;
 }
 
 
 
 
-double Simpson_z(double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X){
+double Simpson_over_rho(double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X){
+    double rho;
+
     /**** Extremes of integration ****/
-    double m = alpha + beta;
-    double a = -1.5 - 1/m;
-    double b = 2.5 + 1/m;
-    
+    double rho_0 = 0.0;
+    double rho_N = 2.0;
+
+    /**** Define the parameters ****/
+    my_params par = {rho_0, alpha, beta, R_A, R_B, c, X};
+
     /**** First and last points ****/
-    double f_a = Simpson_rho(a, alpha, beta, R_A, R_B, c, X);
-    double f_b = Simpson_rho(b, alpha, beta, R_A, R_B, c, X);
+    double f_0 = Integrate_over_z(par);
+    par.rho = rho_N;
+    double f_N = Integrate_over_z(par);
 
     /**** Set the mesh resolution ****/
-    int i, N_mesh = 100;
-    double dz = (b-a)/N_mesh;
+    int i, N_mesh = 10000;
+    double drho = (rho_N - rho_0)/N_mesh;
 
     /**** Simpson integration ****/
-    double z = 0.0, Simpson_sum = 0.0, f_i = 0.0, f_i_plus_1 = 0.0;
+    double Simpson_sum = 0.0, f_i = 0.0, f_i_plus_1 = 0.0;
     for(i=1; i<=N_mesh-1; i=i+2){
-    	
-    	/**** The z coordinate starts at a finite value ****/
-        z = a + i*dz;
-        f_i = Simpson_rho(z, alpha, beta, R_A, R_B, c, X);
-        f_i_plus_1 = Simpson_rho(z + dz, alpha, beta, R_A, R_B, c, X);
+        par.rho = rho_0 + i*drho;
+        f_i = Integrate_over_z(par);
+        par.rho = rho_0 + (i+1)*drho;
+        f_i_plus_1 = Integrate_over_z(par);
         Simpson_sum = Simpson_sum + (4.*f_i + 2.*f_i_plus_1);
     }
 
-    Simpson_sum = (Simpson_sum + f_a + f_b)*(dz/3.);
+    Simpson_sum = (Simpson_sum + f_0 + f_N)*(drho/3.);
     return Simpson_sum;
 }
+
 
 
 
@@ -128,13 +128,13 @@ void create_Ex_Corr(gsl_matrix *V_xc, R R_A, R R_B, gsl_vector *c, double X){
 		for(q=0; q<=p; q++){ 
 
             /**** Factor 2*pi due to the integration over theta ****/
-			val1 = 2.0*pi*Simpson_z(a[p], a[q], R_A, R_A, c, X);
+			val1 = 2.0*pi*Simpson_over_rho(a[p], a[q], R_A, R_A, c, X);
 	        gsl_matrix_set(V_xc, p, q, val1);
             gsl_matrix_set(V_xc, q, p, val1);
             gsl_matrix_set(V_xc, p + N, q + N, val1);
             gsl_matrix_set(V_xc, q + N, p + N, val1);
 
-            val2 = 2.0*pi*Simpson_z(a[p], a[q], R_A, R_B, c, X);
+            val2 = 2.0*pi*Simpson_over_rho(a[p], a[q], R_A, R_B, c, X);
 	        gsl_matrix_set(V_xc, p, q + N, val2);
             gsl_matrix_set(V_xc, q, p + N, val2);
             gsl_matrix_set(V_xc, p + N, q, val2);
@@ -167,41 +167,6 @@ void Print_density(gsl_vector *c, double X){
         for(j=0; j<N_mesh; j++){
             z = z_a + j*dz;
             myfile << density(rho, z, c, X) << "       ";
-        }
-        myfile << "  " << endl;
-    }
-
-    myfile.close();
-}
-
-
-
-void Print_integrand(int p, int q, R R_A, R R_B, gsl_vector *c, double X){
-    string name = "Integrands/Integrand";
-    string underscore = "_";
-    string txt = ".txt";
-    string complete_name = name + to_string(p) + underscore + to_string(q) + txt;
-    ofstream myfile;
-	myfile.open(complete_name, ios :: out | ios :: trunc);
-
-    int i, j, N_mesh = 100;
-    double z, rho;
-
-    /**** Define the mesh for rho ****/
-    double m = a[p] + a[q];
-    double rho_a = 0.0, rho_b = 2.0 + 1/m;
-    double drho = (rho_b - rho_a)/N_mesh;
-
-    /**** Define the mesh for z ****/
-    double z_a = -1.5 - 1/m;
-    double z_b = 2.5 + 1/m;
-    double dz = (z_b - z_a)/N_mesh;
-
-    for(i=0; i<N_mesh + 10; i++){
-        rho = i*drho;
-        for(j=0; j<N_mesh; j++){
-            z = z_a + j*dz;
-            myfile << Integrand(rho, z, a[p], a[q], R_A, R_B, c, X) << "       ";
         }
         myfile << "  " << endl;
     }

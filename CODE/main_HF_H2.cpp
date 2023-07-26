@@ -25,7 +25,7 @@ int main (int argc, char *argv[]){
 
     /**** Initial nuclei positions ****/
     R_A.x = 0., R_A.y = 0., R_A.z = 0.;
-    R_B.x = 1.0, R_B.y = 0., R_B.z = 0.;
+    R_B.x = 1.8, R_B.y = 0., R_B.z = 0.;
 
     /**** Fill S and compute V ****/
     create_S(S, R_A, R_B);
@@ -98,38 +98,61 @@ int main (int argc, char *argv[]){
 
     /**** 1.5) SELF-CONSISTENT DFT ****/
     if (string(argv[1]) == "SC_DFT"){
-        std::cout << "DFT energies: " << endl;
 
-        for(n=0; n<n_iter; n++){
+        for(int i=0; i<8; i++){
+            std::cout << "   " << endl;
 
-            /**** Build Fock matrix with additional exchange-correlation part ****/
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
-            create_Ex_Corr(V_xc, R_A, R_B, c, X[n]);
-            gsl_matrix_add(F, V_xc);
+            /**** Set the interatomic distance ****/
+            R_B.x = 0.6 + i*0.2;
+            X[0] = sqrt(scalar_prod(R_A, R_B));
+            std::cout << "Interatomic distance X = " << X[0] << endl;
 
-            /**** tmp_F is needed beacuse solve_FC_eSC destroys lower part of F ****/
-            gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
-            gsl_matrix_memcpy(tmp_F, F);
-            E_1s = solve_FC_eSC(tmp_F, V, U);
-            std::cout << E_1s << endl;
+            /**** Refill S and compute V with new value of R_B.x ****/
+            create_S(S, R_A, R_B);
+            gsl_matrix_memcpy(S_auxiliary, S);
+            diag_S(S_auxiliary, V);
 
-            /**** Get the c vector from eigenvector matrix U ****/
-            gsl_matrix_get_col(c, U, 0);
-        }
+            /**** Refill H and Q ****/
+            one_body_H(H, R_A, R_B);
+            build_Q(Q, R_A, R_B);
 
-        /**** Print the coefficients ****/
-        std::cout << "   " << endl;
-        std::cout << "Vector of coefficients" << endl;
-        for(n=0; n<2*N; n++){
-            std::cout << gsl_vector_get(c, n) << endl;
-        }
-        
-        /**** Print orbital and HF energy ****/
-        print_orbital(c, R_A, R_B);
-        std::cout << "   " << endl;
-        std::cout << "Total HF energy" << endl;
-        std::cout << compute_E0(F, H, c) + 1./X[0] << endl;  
+            std::cout << "   " << endl;
+            std::cout << "DFT eigenvalues: " << endl;
+
+            for(n=0; n<n_iter; n++){
+
+                /**** Build Fock matrix with the added exchange part ****/
+                two_body_F(Q, c, F);
+                gsl_matrix_scale(F, 1. + a_x);
+                gsl_matrix_add(F, H);
+
+                /**** Adding the exchange and correlation ****/
+                create_Ex_Corr(V_xc, R_A, R_B, c, X[0]);
+                gsl_matrix_add(F, V_xc);
+
+                /**** tmp_F is needed beacuse solve_FC_eSC destroys lower part of F ****/
+                gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
+                gsl_matrix_memcpy(tmp_F, F);
+                E_1s = solve_FC_eSC(tmp_F, V, U);
+                std::cout << E_1s << endl;
+
+                /**** Get the c vector from eigenvector matrix U ****/
+                gsl_matrix_get_col(c, U, 0);
+            }
+
+            /**** Print the coefficients ****/
+            std::cout << "   " << endl;
+            std::cout << "Vector of coefficients" << endl;
+            for(n=0; n<2*N; n++){
+                std::cout << gsl_vector_get(c, n) << endl;
+            }
+            
+            /**** Print orbital and HF energy ****/
+            print_orbital(c, R_A, R_B);
+            std::cout << "   " << endl;
+            std::cout << "Total DFT energy" << endl;
+            std::cout << compute_E0(F, H, c) + 1./X[0] << endl;
+        }  
     }
 
 
