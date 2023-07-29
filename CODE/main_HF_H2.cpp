@@ -25,7 +25,7 @@ int main (int argc, char *argv[]){
 
     /**** Initial nuclei positions ****/
     R_A.x = 0., R_A.y = 0., R_A.z = 0.;
-    R_B.x = 1.8, R_B.y = 0., R_B.z = 0.;
+    R_B.x = 1.2, R_B.y = 0., R_B.z = 0.;
 
     /**** Fill S and compute V ****/
     create_S(S, R_A, R_B);
@@ -96,14 +96,16 @@ int main (int argc, char *argv[]){
 
 
 
-    /**** 1.5) SELF-CONSISTENT DFT ****/
+    /**** SELF-CONSISTENT DFT ****/
     if (string(argv[1]) == "SC_DFT"){
 
-        for(int i=0; i<8; i++){
-            std::cout << "   " << endl;
+        ofstream myfile;
+	    myfile.open("Energy_profile.txt", ios :: out | ios :: trunc);
 
+        for(int i=0; i<12; i++){
+            
             /**** Set the interatomic distance ****/
-            R_B.x = 0.6 + i*0.2;
+            R_B.x = 0.8 + i*0.2;
             X[0] = sqrt(scalar_prod(R_A, R_B));
             std::cout << "Interatomic distance X = " << X[0] << endl;
 
@@ -151,8 +153,13 @@ int main (int argc, char *argv[]){
             print_orbital(c, R_A, R_B);
             std::cout << "   " << endl;
             std::cout << "Total DFT energy" << endl;
-            std::cout << compute_E0(F, H, c) + 1./X[0] << endl;
+            E0 = compute_E0(F, H, c) + 1./X[0];
+            std::cout << E0 << endl;
+            std::cout << "*******************************************************" << endl;
+            std::cout << "   " << endl;
+            myfile << X[0] << "       " << E0 << endl;
         }  
+        myfile.close();
     }
 
 
@@ -197,6 +204,7 @@ int main (int argc, char *argv[]){
     /**** 3) CAR PARRINELLO MOLECULAR DYNAMICS ****/
     if(string(argv[1]) == "MD_Car_Parrinello"){
 
+        /**** Create the files for storing the energies and the coefficients ****/
         string X_en = "MD_CP_X_energies.txt";
         string coeff = "MD_CP_coeff.txt";
         ofstream X_en_file;
@@ -247,6 +255,7 @@ int main (int argc, char *argv[]){
         X_en_file.close();
         coeff_file.close();
 
+        /**** Print to screen the record of the simulation ****/
         std::cout << "Car-Parrinello Molecular Dynamics has been executed for " << CP_iter << " steps" << endl;
         std::cout << "  " << endl;
         std::cout << "Parameters of the simulation: " << endl;
@@ -279,7 +288,7 @@ int main (int argc, char *argv[]){
 
         double lambda_CP = 0.0, E_final = 0.0, E_initial = 0.0;
 
-        /**** Fill the Hessian and b (minus the gradient of E) ****/
+        /**** Fill the Hessian and b (minus the gradient of E, the electronic energy) ****/
         gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
         gsl_vector *b = gsl_vector_alloc(2*N);
         Get_Hessian_and_b(Hessian, b, Q, S, F, c);
@@ -325,7 +334,7 @@ int main (int argc, char *argv[]){
 
 
 
-    /**** 4) CONJUGATE GRADIENT - NUCLEI MOTION WITH CP ****/
+    /**** CONJUGATE GRADIENT - NUCLEI MOTION WITH CP ****/
     if(string(argv[1]) == "CG_CP"){
 
         /**** Start with little equilibration cycle with CPMD ****/
@@ -426,7 +435,7 @@ int main (int argc, char *argv[]){
 
 
 
-    /**** 6) CG AND CP SUPERPOSITION ****/
+    /**** CG AND CP SUPERPOSITION ****/
     if(string(argv[1]) == "CG_CP_superposition"){
         int i, j;
         ofstream scal_prod_file;
@@ -480,7 +489,7 @@ int main (int argc, char *argv[]){
 
 
 
-    /**** 7) EXCHANGE AND CORRELATION PART ****/
+    /**** EXCHANGE AND CORRELATION PART ****/
     if(string(argv[1]) == "EX_CORR"){
         /**** Little equilibration cycle with CPMD ****/
         for(n=0; n<35; n++){

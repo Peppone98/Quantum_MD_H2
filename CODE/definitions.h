@@ -18,11 +18,11 @@ struct R {
     double z;
 };
 
-const int CP_iter = 200; /* Car-Parrinello iterations */
+const int CP_iter = 500; /* Car-Parrinello iterations */
 const double m = 2.; /* fictitious mass for electronic problem */
-const double gamma_el= 1.; /* electronic damping */
+const double gamma_el= 1.0; /* electronic damping */
 const double M_N = 1836.5; /* nuclear mass */
-const double gamma_N = 15.; /* nuclear damping */
+const double gamma_N = 15.0; /* nuclear damping */
 const double h = 0.1; /* electronic time scale */
 const double h_N = 43*h; /* nuclear time scale*/
 const int N = 4;
