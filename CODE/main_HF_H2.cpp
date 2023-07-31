@@ -47,7 +47,7 @@ int main (int argc, char *argv[]){
 
     /**** List of options: ****/
     /**** 1) SC_Hartree_Fock ****/
-    /**** 2) ****/
+    /**** 2) SC_DFT ****/
 
 
 
@@ -527,5 +527,38 @@ int main (int argc, char *argv[]){
     }
 
 
+
+
+
+
+    /**** EXCHANGE AND CORRELATION DERIVATIVES PART ****/
+    if(string(argv[1]) == "XC_DER"){
+        /**** Little equilibration cycle with CPMD ****/
+        for(n=0; n<35; n++){
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
+
+        /**** Print density ****/
+        Print_density_derivative(c, X[0]);
+
+        /**** Print all the integrand functions defined over the (rho, z) plane ****/
+        Print_integrand_dX(0, 0, R_A, R_B, c, X[0]);
+        Print_integrand_dX(0, 1, R_A, R_B, c, X[0]);
+        Print_integrand_dX(0, 2, R_A, R_B, c, X[0]);
+        Print_integrand_dX(0, 3, R_A, R_B, c, X[0]);
+        Print_integrand_dX(1, 1, R_A, R_B, c, X[0]);
+        Print_integrand_dX(1, 2, R_A, R_B, c, X[0]);
+        Print_integrand_dX(1, 3, R_A, R_B, c, X[0]);
+        Print_integrand_dX(2, 2, R_A, R_B, c, X[0]);
+        Print_integrand_dX(2, 3, R_A, R_B, c, X[0]);
+        Print_integrand_dX(3, 3, R_A, R_B, c, X[0]);
+
+    }
+
     /**** End of the main function ****/
 }
+
+
+

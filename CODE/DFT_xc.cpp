@@ -10,7 +10,7 @@ using namespace std;
 double density(double rho, double z, gsl_vector *c, double X){
     double n = 0;
     int p, q;
-    double c_p, c_q, K, exp_factor;
+    double c_p, c_q, K, exp_factor_p, exp_factor_q;
 
     /**** Return the value of n(rho, z), which is needed for the v_xc(n) ****/
     for(p=0; p<N; p++){
@@ -23,8 +23,9 @@ double density(double rho, double z, gsl_vector *c, double X){
 
             /**** K factor, i.e., exp(-a_p*a_q*|R_A - R_B|^2/(a_p + a_q))****/
             K = exp(-a[p]*a[q]*X*X/(a[p] + a[q]));
-            exp_factor = exp(-(a[p] + a[q])*(rho*rho + (z - a[q]*X/(a[p] + a[q]))*(z - a[q]*X/(a[p] + a[q]))));
-            n += 2.*c_p*c_q*K*exp_factor;
+            exp_factor_p = exp(-(a[p] + a[q])*(rho*rho + (z - a[p]*X/(a[p] + a[q]))*(z - a[p]*X/(a[p] + a[q]))));
+            exp_factor_q = exp(-(a[p] + a[q])*(rho*rho + (z - a[q]*X/(a[p] + a[q]))*(z - a[q]*X/(a[p] + a[q]))));
+            n += c_p*c_q*K*(exp_factor_p + exp_factor_q);
         }
     }
 
@@ -33,64 +34,25 @@ double density(double rho, double z, gsl_vector *c, double X){
 
 
 
-
-double density_derivative(double rho, double z, gsl_vector *c, double X){
-    double dn_dX = 0;
-    int p, q;
-    double c_p, c_q, K, exp_factor;
-
-    /**** Return the value of dn/dX, which is needed in the nuclear equations of CPMD ****/
-    for(p=0; p<N; p++){
-        for(q=0; q<N; q++){
-            c_p = gsl_vector_get(c, p);
-            c_q = gsl_vector_get(c, q);
-            dn_dX += (a[p] + a[q])*(z - X)*c_p*c_q*(exp(-(a[p] + a[q])*(rho*rho + (z - X)*(z - X))));
-
-            /**** Note that K is a function of X. So here we sum the derivative of a product ****/
-            K = exp(-a[p]*a[q]*X*X/(a[p] + a[q]));
-            exp_factor = exp(-(a[p] + a[q])*(rho*rho + (z - a[q]*X/(a[p] + a[q]))*(z - a[q]*X/(a[p] + a[q]))));
-            dn_dX -= 4.0*a[p]*a[q]*X/(a[p] + a[q])*c_p*c_q*K*exp_factor;
-            dn_dX += 4.0*(a[p] + a[q])*(z - a[q]*X/(a[p] + a[q]))*c_p*c_q*K*exp_factor;
-        }
-    }
-
-    return dn_dX;
-}
-
-
-
-
-double dchi_p_chi_q_dX(int p, int q, double rho, double z, double X){
-    double K, derivative = 0.0, exp_factor = 0.0;
-    K = exp(-a[p]*a[q]*X*X/(a[p] + a[q]));
-    exp_factor = exp(-(a[p] + a[q])*(rho*rho + (z - a[q]*X/(a[p] + a[q]))*(z - a[q]*X/(a[p] + a[q]))));
-    derivative -= 2.0*a[p]*a[q]*X*K/(a[p] + a[q])*exp_factor;
-    derivative += 2.0*(a[p] + a[q])*(z - a[q]*X/(a[p] + a[q]))*K*exp_factor;
-    return derivative;
-}
-
-
-
-
 double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X){
     /**** Compute the density ****/
     double n = density(rho, z, c, X);
 
     /**** Compute the exchange part ****/
-    double e_x=0.0, e_c=0.0, dEx_dn=0.0, dEc_dn=0.0;
+    double v_x = 0.0, v_c =0.0;
     xc_func_type functional_x;
     xc_func_init(&functional_x, XC_LDA_X, XC_UNPOLARIZED);
-    xc_lda_exc_vxc(&functional_x, 1, &n, &e_x, &dEx_dn);
+    xc_lda_vxc(&functional_x, 1, &n, &v_x);
     xc_func_end(&functional_x);
 
     /**** Compute the correlation part ****/
     xc_func_type functional_c;
     xc_func_init(&functional_c, XC_LDA_C_PZ, XC_UNPOLARIZED);
-    xc_lda_exc_vxc(&functional_c, 1, &n, &e_c, &dEc_dn);
+    xc_lda_vxc(&functional_c, 1, &n, &v_c);
     xc_func_end(&functional_c);
 
     /**** This dE_dn is used in the integral. Note the a_x ****/
-    double dE_dn = a_x*dEx_dn + dEc_dn;
+    double dE_dn = a_x*v_x + v_c;
 
     /**** Compute prefactor and R_C ****/
     double prefactor = K(alpha, beta, R_A, R_B);

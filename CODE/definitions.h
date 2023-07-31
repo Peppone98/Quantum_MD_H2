@@ -114,4 +114,12 @@ void Print_density(gsl_vector *c, double X);
 void Print_integrand(int p, int q, R R_A, R R_B, gsl_vector *c, double X);
 
 
+/********* XC TERM IN CPMD EVOLUTION : DERIVTIVES W.R.T. X ***********/
+double density_derivative(double rho, double z, gsl_vector *c, double X);
+double dchi_p_chi_q_dX(double rho, double z, double alpha, double beta, R R_A, R R_B, double X);
+double Integrand_dX(double rho, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
+void Print_density_derivative(gsl_vector *c, double X);
+void Print_integrand_dX(int p, int q, R R_A, R R_B, gsl_vector *c, double X);
+
+
 #endif
