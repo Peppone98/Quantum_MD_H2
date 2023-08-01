@@ -18,7 +18,7 @@ double density_derivative(double rho, double z, gsl_vector *c, double X){
             c_q = gsl_vector_get(c, q);
             dn_dX += 2.0*(a[p] + a[q])*(z - X)*c_p*c_q*(exp(-(a[p] + a[q])*(rho*rho + (z - X)*(z - X))));
 
-            /**** Note that K is a function of X. So here we sum the derivative of a product ****/
+            /**** Note that K is a function of X. So here we have the derivative of a product ****/
             K = exp(-a[p]*a[q]*X*X/(a[p] + a[q]));
             exp_factor_p = exp(-(a[p] + a[q])*(rho*rho + (z - a[p]*X/(a[p] + a[q]))*(z - a[p]*X/(a[p] + a[q]))));
             exp_factor_q = exp(-(a[p] + a[q])*(rho*rho + (z - a[q]*X/(a[p] + a[q]))*(z - a[q]*X/(a[p] + a[q]))));
@@ -97,24 +97,86 @@ double Integrand_dX(double rho, double z, double alpha, double beta, R R_A, R R_
 
 
 
-void create_dVxc_dX(gsl_matrix *V_xc, R R_A, R R_B, gsl_vector *c, double X){
+
+double Simpson_rho_dX(double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X){
+    /**** Extremes of integration ****/
+    double m = alpha + beta;
+    double a = 0.0;
+    double b = 2.0 + 1/m;
+    
+    /**** First and last points ****/
+    double f_a = Integrand_dX(a, z, alpha, beta, R_A, R_B, c, X);
+    double f_b = Integrand_dX(b, z, alpha, beta, R_A, R_B, c, X);
+
+    /**** Set the mesh resolution ****/
+    int i, N_mesh = 100;
+    double drho = (b-a)/N_mesh;
+
+    /**** Simpson integration ****/
+    double rho = 0.0, Simpson_sum = 0.0, f_i = 0.0, f_i_plus_1 = 0.0;
+    for(i=1; i<=N_mesh-1; i=i+2){
+        rho = i*drho;
+        f_i = Integrand_dX(rho, z, alpha, beta, R_A, R_B, c, X);
+        f_i_plus_1 = Integrand_dX(rho + drho, z, alpha, beta, R_A, R_B, c, X);
+        Simpson_sum = Simpson_sum + (4.*f_i + 2.*f_i_plus_1);
+    }
+
+    Simpson_sum = (Simpson_sum + f_a + f_b)*(drho/3.);
+    return Simpson_sum;
+}
+
+
+
+
+double Simpson_z_dX(double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X){
+    /**** Extremes of integration ****/
+    double m = alpha + beta;
+    double a = -1.5 - 1/m;
+    double b = 2.5 + 1/m;
+    
+    /**** First and last points ****/
+    double f_a = Simpson_rho_dX(a, alpha, beta, R_A, R_B, c, X);
+    double f_b = Simpson_rho_dX(b, alpha, beta, R_A, R_B, c, X);
+
+    /**** Set the mesh resolution ****/
+    int i, N_mesh = 100;
+    double dz = (b-a)/N_mesh;
+
+    /**** Simpson integration ****/
+    double z = 0.0, Simpson_sum = 0.0, f_i = 0.0, f_i_plus_1 = 0.0;
+    for(i=1; i<=N_mesh-1; i=i+2){
+    	
+    	/**** The z coordinate starts at a finite value ****/
+        z = a + i*dz;
+        f_i = Simpson_rho_dX(z, alpha, beta, R_A, R_B, c, X);
+        f_i_plus_1 = Simpson_rho_dX(z + dz, alpha, beta, R_A, R_B, c, X);
+        Simpson_sum = Simpson_sum + (4.*f_i + 2.*f_i_plus_1);
+    }
+
+    Simpson_sum = (Simpson_sum + f_a + f_b)*(dz/3.);
+    return Simpson_sum;
+}
+
+
+
+void create_dVxc_dX(gsl_matrix *dVxc_dX, R R_A, R R_B, gsl_vector *c, double X){
 	int p, q;
 	double val1=0., val2=0.;
 	for(p=0; p<N; p++){
 		for(q=0; q<=p; q++){ 
 
             /**** Factor 2*pi due to the integration over theta ****/
-			val1 = 2.0*pi*Simpson_z(a[p], a[q], R_A, R_A, c, X);
-	        gsl_matrix_set(V_xc, p, q, val1);
-            gsl_matrix_set(V_xc, q, p, val1);
-            gsl_matrix_set(V_xc, p + N, q + N, val1);
-            gsl_matrix_set(V_xc, q + N, p + N, val1);
+			val1 = 2.0*pi*Simpson_z_dX(a[p], a[q], R_A, R_A, c, X);
+	        gsl_matrix_set(dVxc_dX, p, q, val1);
+            gsl_matrix_set(dVxc_dX, q, p, val1);
+            gsl_matrix_set(dVxc_dX, p + N, q + N, val1);
+            gsl_matrix_set(dVxc_dX, q + N, p + N, val1);
 
-            val2 = 2.0*pi*Simpson_z(a[p], a[q], R_A, R_B, c, X);
-	        gsl_matrix_set(V_xc, p, q + N, val2);
-            gsl_matrix_set(V_xc, q, p + N, val2);
-            gsl_matrix_set(V_xc, p + N, q, val2);
-            gsl_matrix_set(V_xc, q + N, p, val2);
+            val2 = 2.0*pi*Simpson_z_dX(a[p], a[q], R_A, R_B, c, X);
+	        gsl_matrix_set(dVxc_dX, p, q + N, val2);
+            gsl_matrix_set(dVxc_dX, q, p + N, val2);
+            gsl_matrix_set(dVxc_dX, p + N, q, val2);
+            gsl_matrix_set(dVxc_dX, q + N, p, val2);
 
 		}
 	}

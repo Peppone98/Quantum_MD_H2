@@ -118,8 +118,10 @@ void Print_integrand(int p, int q, R R_A, R R_B, gsl_vector *c, double X);
 double density_derivative(double rho, double z, gsl_vector *c, double X);
 double dchi_p_chi_q_dX(double rho, double z, double alpha, double beta, R R_A, R R_B, double X);
 double Integrand_dX(double rho, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
+double Simpson_rho_dX(double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
+double Simpson_z_dX(double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
 void Print_density_derivative(gsl_vector *c, double X);
 void Print_integrand_dX(int p, int q, R R_A, R R_B, gsl_vector *c, double X);
-
+void create_dVxc_dX(gsl_matrix *dVxc_dX, R R_A, R R_B, gsl_vector *c, double X);
 
 #endif

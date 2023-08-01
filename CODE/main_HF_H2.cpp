@@ -21,6 +21,8 @@ int main (int argc, char *argv[]){
     gsl_vector *c_old = gsl_vector_alloc(2*N);
 	gsl_vector_set_all(c, 1.);
     gsl_matrix *V_xc = gsl_matrix_alloc(2*N, 2*N);
+    gsl_matrix *dVxc_dX = gsl_matrix_alloc(2*N, 2*N);
+
 
 
     /**** Initial nuclei positions ****/
@@ -543,22 +545,111 @@ int main (int argc, char *argv[]){
         /**** Print density ****/
         Print_density_derivative(c, X[0]);
 
-        /**** Print all the integrand functions defined over the (rho, z) plane ****/
-        Print_integrand_dX(0, 0, R_A, R_B, c, X[0]);
-        Print_integrand_dX(0, 1, R_A, R_B, c, X[0]);
-        Print_integrand_dX(0, 2, R_A, R_B, c, X[0]);
-        Print_integrand_dX(0, 3, R_A, R_B, c, X[0]);
-        Print_integrand_dX(1, 1, R_A, R_B, c, X[0]);
-        Print_integrand_dX(1, 2, R_A, R_B, c, X[0]);
-        Print_integrand_dX(1, 3, R_A, R_B, c, X[0]);
-        Print_integrand_dX(2, 2, R_A, R_B, c, X[0]);
-        Print_integrand_dX(2, 3, R_A, R_B, c, X[0]);
-        Print_integrand_dX(3, 3, R_A, R_B, c, X[0]);
+        /**** Create the derivative of XC matrix ****/
+        create_dVxc_dX(dVxc_dX, R_A, R_B, c, X[0]);
 
+        std::cout << "Matrix dVxc_dX: " << endl;
+        for(int k=0; k<2*N; k++){
+            for(int j=0; j<2*N; j++){
+                std::cout << gsl_matrix_get(dVxc_dX, k, j) << "   ";
+            }
+            std::cout << "  " << endl;
+        }
+
+    }
+
+
+
+
+
+
+
+    /**** CPMD WITH DFT ****/
+    if(string(argv[1]) == "CPMD_DFT"){
+
+        /**** Create the files for storing the energies and the coefficients ****/
+        string X_en = "MD_CP_DFT_X_energies.txt";
+        string coeff = "MD_CP_DFT_coeff.txt";
+        ofstream X_en_file;
+        ofstream coeff_file;
+	    X_en_file.open(X_en, ios :: out | ios :: trunc);
+        coeff_file.open(coeff, ios :: out | ios :: trunc);
+
+        for(n=1; n<CP_iter-1; n++){
+
+            /**** Fill S, H and Q for electronic problem ****/
+            create_S(S, R_A, R_B);
+            one_body_H(H, R_A, R_B);
+            build_Q(Q, R_A, R_B);
+
+            /**** Evolve the c vector of coefficients ****/
+            double n_times = h_N/h;
+            for(int k=0; k<n_times; k++){
+                two_body_F(Q, c, F);
+                gsl_matrix_scale(F, 1. + a_x);
+
+                /**** The XC part has to be recomputed because it stricly depends on the vector c ****/
+                create_Ex_Corr(V_xc, R_A, R_B, c, X[n]);
+                gsl_matrix_add(F, H);
+                gsl_matrix_add(F, V_xc);
+                lambda = update_c(F, S, c, c_old);
+            }
+
+            /**** Print the coefficients to file ****/
+            for(int i=0; i<2*N; i++){
+                coeff_file << gsl_vector_get(c, i) <<  "    ";
+            }
+            coeff_file << endl;
+
+            /**** Compute the correct energy after the update of F ****/
+            two_body_F(Q, c, F);
+            gsl_matrix_scale(F, 1. + a_x);
+            gsl_matrix_add(F, H);
+
+            /**** Adding the exchange and correlation ****/
+            create_Ex_Corr(V_xc, R_A, R_B, c, X[n]);
+            gsl_matrix_add(F, V_xc);
+            E0 = compute_E0(F, H, c) + 1./X[n];
+
+            /**** Fill S, H, Q and F for nuclear problem ****/
+            create_dS_dX(S, R_A, R_B);
+            one_body_dH_dX(H, R_A, R_B, X[n]);
+            build_dQ_dX(Q, R_A, R_B, X[n]);
+            create_dVxc_dX(dVxc_dX, R_A, R_B, c, X[n]);
+            two_body_F(Q, c, F);
+            gsl_matrix_scale(F, 1. + a_x);
+            gsl_matrix_add(F, H);
+            gsl_matrix_add(F, dVxc_dX);
+
+            /**** Update X (also R_B.x is updated) ****/
+            dE0_dX = compute_dE0_dX(F, H, c, X[n]);
+            X[n + 1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[n], X[n-1]);
+            std::cout << "  " << endl;
+            X_en_file << X[n] << "    " << E0 << endl;
+        }
+
+        X_en_file.close();
+        coeff_file.close();
+
+        /**** Print to screen the record of the simulation ****/
+        std::cout << "Car-Parrinello Molecular Dynamics has been executed for " << CP_iter << " steps" << endl;
+        std::cout << "  " << endl;
+        std::cout << "Parameters of the simulation: " << endl;
+        std::cout << "Electronic step h: " << h << endl;
+        std::cout << "Nuclear step h_N: " << h_N << endl;
+        std::cout << "Electronic fictitious mass: " << m << endl;
+        std::cout << "Nuclear mass: " << M_N << endl;
+        std::cout << "Electronic damping: " << gamma_el << endl;
+        std::cout << "Nuclear damping: " << gamma_N << endl;
+        std::cout << "XC functional employed: " << endl;
+        std::cout << "  " << endl;
+        std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
+        std::cout << "The C coefficients have been written to " << coeff << endl;
     }
 
     /**** End of the main function ****/
 }
+
 
 
 
