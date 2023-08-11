@@ -41,13 +41,13 @@ double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, 
     /**** Compute the exchange part ****/
     double v_x = 0.0, v_c =0.0;
     xc_func_type functional_x;
-    xc_func_init(&functional_x, XC_LDA_X, XC_UNPOLARIZED);
+    xc_func_init(&functional_x, FUNCTIONAL_X, XC_UNPOLARIZED);
     xc_lda_vxc(&functional_x, 1, &n, &v_x);
     xc_func_end(&functional_x);
 
     /**** Compute the correlation part ****/
     xc_func_type functional_c;
-    xc_func_init(&functional_c, XC_LDA_C_PZ, XC_UNPOLARIZED);
+    xc_func_init(&functional_c, FUNCTIONAL_C, XC_UNPOLARIZED);
     xc_lda_vxc(&functional_c, 1, &n, &v_c);
     xc_func_end(&functional_c);
 

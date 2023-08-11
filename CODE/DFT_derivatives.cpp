@@ -68,14 +68,14 @@ double Integrand_dX(double rho, double z, double alpha, double beta, R R_A, R R_
     /**** Compute the exchange part (namely, dv_x/dn) ****/
     double v_x = 0.0, v_c = 0.0, dvx_dn = 0.0, dvc_dn = 0.0;
     xc_func_type functional_x;
-    xc_func_init(&functional_x, XC_LDA_X, XC_UNPOLARIZED);
+    xc_func_init(&functional_x, FUNCTIONAL_X, XC_UNPOLARIZED);
     xc_lda_vxc(&functional_x, 1, &n, &v_x);
     xc_lda_fxc(&functional_x, 1, &n, &dvx_dn);
     xc_func_end(&functional_x);
 
     /**** Compute the correlation part (namely, dv_c/dn) ****/
     xc_func_type functional_c;
-    xc_func_init(&functional_c, XC_LDA_C_PZ, XC_UNPOLARIZED);
+    xc_func_init(&functional_c, FUNCTIONAL_C, XC_UNPOLARIZED);
     xc_lda_vxc(&functional_c, 1, &n, &v_c);
     xc_lda_fxc(&functional_c, 1, &n, &dvc_dn);
     xc_func_end(&functional_c);

@@ -1,4 +1,5 @@
 #include "definitions.h"
+#include "xc.h"
 
 using namespace std;
 
@@ -101,6 +102,12 @@ int main (int argc, char *argv[]){
     /**** SELF-CONSISTENT DFT ****/
     if (string(argv[1]) == "SC_DFT"){
 
+        /**** Get the name of the functional ****/
+        xc_func_type func;
+        xc_func_init(&func, FUNCTIONAL_C, XC_UNPOLARIZED);
+        std::cout << "************ XC FUNCTIONAL ************" << endl;
+        std::cout << func.info->name << endl;
+        std::cout << "  " << endl;
         ofstream myfile;
 	    myfile.open("Energy_profile.txt", ios :: out | ios :: trunc);
 
@@ -131,7 +138,8 @@ int main (int argc, char *argv[]){
                 gsl_matrix_add(F, H);
 
                 /**** Adding the exchange and correlation ****/
-                create_Ex_Corr(V_xc, R_A, R_B, c, X[0]);
+                string s = "V_xc";
+                Adaptive_Ex_Corr(V_xc, dVxc_dX, R_A, R_B, c, X[0], s);
                 gsl_matrix_add(F, V_xc);
 
                 /**** tmp_F is needed beacuse solve_FC_eSC destroys lower part of F ****/
@@ -582,14 +590,15 @@ int main (int argc, char *argv[]){
             one_body_H(H, R_A, R_B);
             build_Q(Q, R_A, R_B);
 
+            string s = "V_xc";
             /**** Evolve the c vector of coefficients ****/
             double n_times = h_N/h;
             for(int k=0; k<n_times; k++){
                 two_body_F(Q, c, F);
                 gsl_matrix_scale(F, 1. + a_x);
 
-                /**** The XC part has to be recomputed because it stricly depends on the vector c ****/
-                create_Ex_Corr(V_xc, R_A, R_B, c, X[n]);
+                /**** The XC part has to be recomputed because it strictly depends on the vector c ****/
+                Adaptive_Ex_Corr(V_xc, dVxc_dX, R_A, R_B, c, X[n], s);
                 gsl_matrix_add(F, H);
                 gsl_matrix_add(F, V_xc);
                 lambda = update_c(F, S, c, c_old);
@@ -646,6 +655,65 @@ int main (int argc, char *argv[]){
         std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
         std::cout << "The C coefficients have been written to " << coeff << endl;
     }
+
+
+
+
+
+
+
+    /**** ADAPTIVE INTEGRATION ****/
+    if(string(argv[1]) == "ADAPTIVE"){
+        /**** Little equilibration cycle with CPMD ****/
+        for(n=0; n<35; n++){
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
+
+        /**** Create the derivative of XC matrix ****/
+        string s = "V_xc";
+        Adaptive_Ex_Corr(V_xc, dVxc_dX, R_A, R_B, c, X[0], s);
+
+        std::cout << "Matrix V_xc: " << endl;
+        for(int k=0; k<2*N; k++){
+            for(int j=0; j<2*N; j++){
+                std::cout << gsl_matrix_get(V_xc, k, j) << "   ";
+            }
+            std::cout << "  " << endl;
+        }
+
+    }
+
+
+
+
+
+
+
+    /**** XC DERIVATIVES (ADAPTIVE) ****/
+    if(string(argv[1]) == "XC_DER_ADAPTIVE"){
+        /**** Little equilibration cycle with CPMD ****/
+        for(n=0; n<35; n++){
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
+
+        /**** Create the derivative of XC matrix ****/
+        string s = "dVxc_dX";
+        Adaptive_Ex_Corr(V_xc, dVxc_dX, R_A, R_B, c, X[0], s);
+
+        std::cout << "Matrix dVxc_dX: " << endl;
+        for(int k=0; k<2*N; k++){
+            for(int j=0; j<2*N; j++){
+                std::cout << gsl_matrix_get(dVxc_dX, k, j) << "   ";
+            }
+            std::cout << "  " << endl;
+        }
+
+    }
+
 
     /**** End of the main function ****/
 }

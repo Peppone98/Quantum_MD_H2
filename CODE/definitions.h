@@ -12,11 +12,15 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_blas.h>
 
+using namespace std;
 struct R {
     double x;
     double y;
     double z;
 };
+
+#define FUNCTIONAL_X XC_LDA_X
+#define FUNCTIONAL_C XC_LDA_C_PZ
 
 const int CP_iter = 500; /* Car-Parrinello iterations */
 const double m = 2.; /* fictitious mass for electronic problem */
@@ -123,5 +127,14 @@ double Simpson_z_dX(double alpha, double beta, R R_A, R R_B, gsl_vector *c, doub
 void Print_density_derivative(gsl_vector *c, double X);
 void Print_integrand_dX(int p, int q, R R_A, R R_B, gsl_vector *c, double X);
 void create_dVxc_dX(gsl_matrix *dVxc_dX, R R_A, R R_B, gsl_vector *c, double X);
+
+
+/********* ADAPTIVE INTEGRATION PART ***********/
+double Get_Simpson_rho(double a, double b, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
+double Adaptive_Simpsons_rho(double a, double b, double z, double eps, double whole, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
+double Get_Simpson_z(double a, double b, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
+double Get_Simpson_z(double a, double b, double eps, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
+double Adaptive_Simpsons_z(double a, double b, double eps, double whole, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
+void Adaptive_Ex_Corr(gsl_matrix *V_xc, gsl_matrix *dVxc_dX, R R_A, R R_B, gsl_vector *c, double X, string s);
 
 #endif
