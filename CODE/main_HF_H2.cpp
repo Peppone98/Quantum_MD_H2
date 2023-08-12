@@ -575,13 +575,72 @@ int main (int argc, char *argv[]){
     /**** CPMD WITH DFT ****/
     if(string(argv[1]) == "CPMD_DFT"){
 
-        /**** Create the files for storing the energies and the coefficients ****/
+        /**** If a previous trajectory has been produced, then append the output ****/
         string X_en = "MD_CP_DFT_X_energies.txt";
         string coeff = "MD_CP_DFT_coeff.txt";
+        ifstream X_energies_file;
+        ifstream coefficients_file;
+        X_energies_file.open(X_en);
+        coefficients_file.open(coeff);
+        double read_coeff[2*N];
+        double read_X_en[2];
+
+        /**** Check if opening a file failed ****/ 
+        if (coefficients_file.fail() || X_energies_file.fail()) {
+            std::cout << "Error opening the coefficients file or the X_energies file" << endl;
+            exit(1);
+        }else{
+            string line_coeff, line_X;
+            int count = 0;
+
+            /**** Read the files until the last line ****/
+            while(getline(coefficients_file, line_coeff)){
+                for(int i=0; i<2*N; i++){
+                    coefficients_file >> read_coeff[i];
+                }
+            }
+            while(getline(X_energies_file, line_X)){
+                for(int i=0; i<2; i++){
+                    X_energies_file >> read_X_en[i];
+                }
+            }
+ 
+            std::cout << "****** Warning: starting from a given set of coefficients c ****" << endl;
+            std::cout << "Coeffients read from file: " << endl;
+
+            /**** Print the coefficients to screen ****/
+            for(int i=0; i<2*N; i++){    
+                std::cout << read_coeff[i] << endl;
+            }
+            std::cout << "   " << endl;
+            std::cout << "Last X and energy read from file: " << endl;
+            std::cout << read_X_en[0] << "      " << read_X_en[1] << endl;
+            std::cout << "****************************************************************" << endl;
+            std::cout << "  " << endl;
+        }
+
+        /**** Save the read coefficients in the gsl_vector ****/
+        for(int i=0; i<2*N; i++){
+            gsl_vector_set(c, i, read_coeff[i]);
+        }
+
+        /**** Restart the simulation from the right X ****/
+        X[0] = read_X_en[0];
+        X[1] = read_X_en[0];
+        R_B.x = read_X_en[0];
+
+        /**** Create the files for storing the energies and the coefficients ****/
         ofstream X_en_file;
         ofstream coeff_file;
-	    X_en_file.open(X_en, ios :: out | ios :: trunc);
-        coeff_file.open(coeff, ios :: out | ios :: trunc);
+
+        /**** If the X_en_file already exists, then append the output ****/
+        if(X_en_file.fail() || coeff_file.fail()){
+            X_en_file.open(X_en, ios :: out | ios :: trunc);
+            coeff_file.open(coeff, ios :: out | ios :: trunc);
+        }else{
+            X_en_file.open(X_en, ios_base::app);
+            coeff_file.open(coeff, ios_base::app);
+        }
 
         for(n=1; n<CP_iter-1; n++){
 
