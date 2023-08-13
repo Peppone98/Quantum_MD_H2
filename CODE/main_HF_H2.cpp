@@ -575,6 +575,11 @@ int main (int argc, char *argv[]){
     /**** CPMD WITH DFT ****/
     if(string(argv[1]) == "CPMD_DFT"){
 
+        /**** Choose the number of steps (must be less than CP_iter) ****/
+        int N_steps;
+        std::cout << "Enter the number of CPMD_DFT steps: " << endl;
+        std::cin >> N_steps;
+
         /**** If a previous trajectory has been produced, then append the output ****/
         string X_en = "MD_CP_DFT_X_energies.txt";
         string coeff = "MD_CP_DFT_coeff.txt";
@@ -583,51 +588,79 @@ int main (int argc, char *argv[]){
         X_energies_file.open(X_en);
         coefficients_file.open(coeff);
         double read_coeff[2*N];
-        double read_X_en[2];
 
         /**** Check if opening a file failed ****/ 
         if (coefficients_file.fail() || X_energies_file.fail()) {
-            std::cout << "Error opening the coefficients file or the X_energies file" << endl;
-            exit(1);
+            std::cout << "Coefficients file or the X_energies file NOT FOUND" << endl;
+            std::cout << "*********** Starting a NEW simulation ***********" << endl;
         }else{
             string line_coeff, line_X;
-            int count = 0;
 
-            /**** Read the files until the last line ****/
+            /**** Read the coefficient file until the last line ****/
             while(getline(coefficients_file, line_coeff)){
                 for(int i=0; i<2*N; i++){
                     coefficients_file >> read_coeff[i];
                 }
             }
-            while(getline(X_energies_file, line_X)){
-                for(int i=0; i<2; i++){
-                    X_energies_file >> read_X_en[i];
-                }
+
+            /**** Read the X_en file and save it in a vector of strings ****/
+            vector<string> contents_X;
+            while(!X_energies_file.eof()){
+                getline(X_energies_file, line_X);
+                contents_X.push_back(line_X);
             }
- 
-            std::cout << "****** Warning: starting from a given set of coefficients c ****" << endl;
-            std::cout << "Coeffients read from file: " << endl;
+
+            /**** Save the last and the second last lines ****/
+            int number_of_lines = contents_X.size();
+            std::cout << "Second last line: " << contents_X.at(number_of_lines-3) << endl;
+            std::cout << "Last line: " << contents_X.at(number_of_lines-2) << endl;
+
+            /**** Create a string object with a stream ****/
+            stringstream s1(contents_X.at(number_of_lines - 3));
+            stringstream s2(contents_X.at(number_of_lines - 2));
+            string record_1, record_2;
+            s1 >> record_1;
+            s2 >> record_2;
+            X[0] = atof(record_1.c_str());
+            X[1] = atof(record_2.c_str());
+            R_B.x = X[1];
+
+            /**** Get the last lambda to restart the simulation ****/
+            s2 >> record_2;
+            s2 >> record_2;
+            lambda = atof(record_2.c_str());
+            std::cout << "Last lambda: " << lambda << endl;
 
             /**** Print the coefficients to screen ****/
+            std::cout << "****** Warning: starting from a given set of coefficients c ****" << endl;
+            std::cout << "Coefficients read from file: " << endl;
             for(int i=0; i<2*N; i++){    
                 std::cout << read_coeff[i] << endl;
             }
-            std::cout << "   " << endl;
-            std::cout << "Last X and energy read from file: " << endl;
-            std::cout << read_X_en[0] << "      " << read_X_en[1] << endl;
-            std::cout << "****************************************************************" << endl;
-            std::cout << "  " << endl;
-        }
+            
+            /**** Save the read coefficients in the gsl_vector ****/
+            for(int i=0; i<2*N; i++){
+                gsl_vector_set(c, i, read_coeff[i]);
+            }
 
-        /**** Save the read coefficients in the gsl_vector ****/
-        for(int i=0; i<2*N; i++){
-            gsl_vector_set(c, i, read_coeff[i]);
-        }
-
-        /**** Restart the simulation from the right X ****/
-        X[0] = read_X_en[0];
-        X[1] = read_X_en[0];
-        R_B.x = read_X_en[0];
+            /**** Obtain the right X[1] coordinate (we must start the cycle with n=1) ****/
+            create_dS_dX(S, R_A, R_B);
+            one_body_dH_dX(H, R_A, R_B, X[1]);
+            build_dQ_dX(Q, R_A, R_B, X[1]);
+            create_dVxc_dX(dVxc_dX, R_A, R_B, c, X[1]);
+            two_body_F(Q, c, F);
+            gsl_matrix_scale(F, 1. + a_x);
+            gsl_matrix_add(F, H);
+            gsl_matrix_add(F, dVxc_dX);
+            dE0_dX = compute_dE0_dX(F, H, c, X[1]);
+            X[0] = X[1];
+            X[1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[1], X[0]);
+            std::cout << "New starting X: " << X[1] << endl; 
+            
+            /**** To restart the c evolution on the run ****/
+            gsl_vector_memcpy(c_old, c);
+            
+        }/**** End of the if statement ****/
 
         /**** Create the files for storing the energies and the coefficients ****/
         ofstream X_en_file;
@@ -642,7 +675,7 @@ int main (int argc, char *argv[]){
             coeff_file.open(coeff, ios_base::app);
         }
 
-        for(n=1; n<CP_iter-1; n++){
+        for(n=1; n<=N_steps; n++){
 
             /**** Fill S, H and Q for electronic problem ****/
             create_S(S, R_A, R_B);
@@ -693,14 +726,16 @@ int main (int argc, char *argv[]){
             dE0_dX = compute_dE0_dX(F, H, c, X[n]);
             X[n + 1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[n], X[n-1]);
             std::cout << "  " << endl;
-            X_en_file << X[n] << "    " << E0 << endl;
+
+            /**** lambda is needed only to restart the simulation ****/
+            X_en_file << X[n] << "    " << E0 << "    " << lambda << endl;
         }
 
         X_en_file.close();
         coeff_file.close();
 
         /**** Print to screen the record of the simulation ****/
-        std::cout << "Car-Parrinello Molecular Dynamics has been executed for " << CP_iter << " steps" << endl;
+        std::cout << "Car-Parrinello Molecular Dynamics has been executed for " << N_steps << " steps" << endl;
         std::cout << "  " << endl;
         std::cout << "Parameters of the simulation: " << endl;
         std::cout << "Electronic step h: " << h << endl;
@@ -709,7 +744,9 @@ int main (int argc, char *argv[]){
         std::cout << "Nuclear mass: " << M_N << endl;
         std::cout << "Electronic damping: " << gamma_el << endl;
         std::cout << "Nuclear damping: " << gamma_N << endl;
-        std::cout << "XC functional employed: " << endl;
+        xc_func_type func;
+        xc_func_init(&func, FUNCTIONAL_C, XC_UNPOLARIZED);
+        std::cout << "XC functional employed: " << func.info->name << endl;
         std::cout << "  " << endl;
         std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
         std::cout << "The C coefficients have been written to " << coeff << endl;

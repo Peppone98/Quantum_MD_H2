@@ -7,6 +7,8 @@
 #include <cstdlib>
 #include <string>
 #include <cmath>
+#include <vector>
+#include <sstream>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_matrix.h>
