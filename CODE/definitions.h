@@ -139,4 +139,7 @@ double Get_Simpson_z(double a, double b, double eps, double alpha, double beta, 
 double Adaptive_Simpsons_z(double a, double b, double eps, double whole, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
 void Adaptive_Ex_Corr(gsl_matrix *V_xc, gsl_matrix *dVxc_dX, R R_A, R R_B, gsl_vector *c, double X, string s);
 
+/********* FILE HANDLINGS *********************/
+void Remove_last_line(string filename);
+
 #endif
