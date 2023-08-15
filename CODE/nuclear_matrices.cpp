@@ -35,7 +35,9 @@ void one_body_dH_dX(gsl_matrix *H, R R_A, R R_B, double X){
     if(sqrt(scalar_prod(R_A, R_B)) != X){
         cout << "Warning: give correct distances" << endl;
     }
-    cout << "Quick check: "<< sqrt(scalar_prod(R_A, R_B)) << "  " << X << endl;
+    
+    /* cout << "Quick check: "<< sqrt(scalar_prod(R_A, R_B)) << "  " << X << endl; */ 
+    
     for(p = 0; p < N; p++){
         for(q = 0; q <= p; q++){
 

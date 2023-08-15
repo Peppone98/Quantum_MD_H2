@@ -11,7 +11,7 @@ int main (int argc, char *argv[]){
 	R R_A, R_B;
     double Q[2*N][2*N][2*N][2*N];
     double X[CP_iter];
-    double E_1s=0., lambda=0., E0 = 0., dE0_dX = 0.;
+    double E_1s=0., lambda=0., E0 = 0., E_old = 0., dE0_dX = 0.;
 	gsl_matrix *S = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *S_auxiliary = gsl_matrix_alloc(2*N, 2*N);
 	gsl_matrix *H = gsl_matrix_alloc(2*N, 2*N);
@@ -49,46 +49,87 @@ int main (int argc, char *argv[]){
 
 
     /**** List of options: ****/
-    /**** 1) SC_Hartree_Fock ****/
-    /**** 2) SC_DFT ****/
+    /**** SC_Hartree_Fock ****/
+    /**** SC_DFT ****/
+    /**** Evolve_coefficients ****/
+    /**** MD_Car_Parrinello ****/
+    /**** CG_min ****/
+    /**** CG_CP ****/
+    /**** CG_CP_superposition ****/
+    /**** EX_CORR ****/
+    /**** XC_DER ****/
+    /**** CPMD_DFT ****/
+    /**** ADAPTIVE ****/
+    /**** XC_DER_ADAPTIVE ****/
+
 
 
 
 
     
-    /**** 1) SELF-CONSISTENT HARTREE-FOCK ****/
-    if (string(argv[1]) == "SC_Hartree_Fock"){
-        std::cout << "Hartree-Fock energies: " << endl;
+    /**** SELF-CONSISTENT HARTREE-FOCK ****/
+    if (string(argv[1]) == "SC_HF"){
 
-        for(n=0; n<n_iter; n++){
+        ofstream myfile;
+	    myfile.open("Energy_profile.txt", ios :: out | ios :: trunc);
 
-            /**** Build Fock matrix using Q and H ****/
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
+        for(int i=0; i<24; i++){
+            
+            /**** Set the interatomic distance ****/
+            R_B.x = 0.8 + i*0.1;
+            X[0] = sqrt(scalar_prod(R_A, R_B));
+            std::cout << "Interatomic distance X = " << X[0] << endl;
 
-            /**** tmp_F is needed beacuse solve_FC_eSC destroys lower part of F ****/
-            gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
-            gsl_matrix_memcpy(tmp_F, F);
-            E_1s = solve_FC_eSC(tmp_F, V, U);
-            std::cout << E_1s << endl;
+            /**** Refill S and compute V with new value of R_B.x ****/
+            create_S(S, R_A, R_B);
+            gsl_matrix_memcpy(S_auxiliary, S);
+            diag_S(S_auxiliary, V);
 
-            /**** Get the c vector from eigenvector matrix U ****/
-            gsl_matrix_get_col(c, U, 0);
-        }
+            /**** Refill H and Q ****/
+            one_body_H(H, R_A, R_B);
+            build_Q(Q, R_A, R_B);
 
-        /**** Print the coefficients ****/
-        std::cout << "   " << endl;
-        std::cout << "Vector of coefficients" << endl;
-        for(n=0; n<2*N; n++){
-            std::cout << gsl_vector_get(c, n) << endl;
-        }
-        
-        /**** Print orbital and HF energy ****/
-        print_orbital(c, R_A, R_B);
-        std::cout << "   " << endl;
-        std::cout << "Total HF energy" << endl;
-        std::cout << compute_E0(F, H, c) + 1./X[0] << endl; 	
-	}
+            std::cout << "   " << endl;
+            std::cout << "HF energies: " << endl;
+
+            E0 = 1.0, E_old = 0-0;
+            while(fabs(E0 - E_old) > 1E-7){
+
+                /**** Build Fock matrix with the added exchange part ****/
+                two_body_F(Q, c, F);
+                gsl_matrix_add(F, H);
+
+                /**** tmp_F is needed beacuse solve_FC_eSC destroys lower part of F ****/
+                gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
+                gsl_matrix_memcpy(tmp_F, F);
+                E_1s = solve_FC_eSC(tmp_F, V, U);
+
+                /**** Compute the energy and print it ****/
+                E_old = E0;
+                E0 = compute_E0(F, H, c) + 1./X[0];
+                std::cout << E0 << endl;
+
+                /**** Get the c vector from eigenvector matrix U ****/
+                gsl_matrix_get_col(c, U, 0);
+                gsl_matrix_free(tmp_F);
+            }
+
+            /**** Print the coefficients ****/
+            std::cout << "   " << endl;
+            std::cout << "Vector of coefficients" << endl;
+            for(n=0; n<2*N; n++){
+                std::cout << gsl_vector_get(c, n) << endl;
+            }
+            
+            /**** Print energy to screen and fill the .txt file ****/
+            std::cout << "   " << endl;
+            std::cout << "Total HF energy: " << E0 << " H" << endl;
+            std::cout << "*******************************************************" << endl;
+            std::cout << "   " << endl;
+            myfile << X[0] << "       " << E0 << endl;
+        }  
+        myfile.close(); 
+    }
 
 
 
@@ -111,10 +152,10 @@ int main (int argc, char *argv[]){
         ofstream myfile;
 	    myfile.open("Energy_profile.txt", ios :: out | ios :: trunc);
 
-        for(int i=0; i<12; i++){
+        for(int i=0; i<24; i++){
             
             /**** Set the interatomic distance ****/
-            R_B.x = 0.8 + i*0.2;
+            R_B.x = 0.8 + i*0.1;
             X[0] = sqrt(scalar_prod(R_A, R_B));
             std::cout << "Interatomic distance X = " << X[0] << endl;
 
@@ -128,9 +169,10 @@ int main (int argc, char *argv[]){
             build_Q(Q, R_A, R_B);
 
             std::cout << "   " << endl;
-            std::cout << "DFT eigenvalues: " << endl;
+            std::cout << "DFT energies: " << endl;
 
-            for(n=0; n<n_iter; n++){
+            E0 = 1.0, E_old = 0-0;
+            while(fabs(E0 - E_old) > 1E-7){
 
                 /**** Build Fock matrix with the added exchange part ****/
                 two_body_F(Q, c, F);
@@ -146,10 +188,15 @@ int main (int argc, char *argv[]){
                 gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
                 gsl_matrix_memcpy(tmp_F, F);
                 E_1s = solve_FC_eSC(tmp_F, V, U);
-                std::cout << E_1s << endl;
+
+                /**** Compute the energy and print it ****/
+                E_old = E0;
+                E0 = compute_E0(F, H, c) + 1./X[0];
+                std::cout << E0 << endl;
 
                 /**** Get the c vector from eigenvector matrix U ****/
                 gsl_matrix_get_col(c, U, 0);
+                gsl_matrix_free(tmp_F);
             }
 
             /**** Print the coefficients ****/
@@ -159,17 +206,18 @@ int main (int argc, char *argv[]){
                 std::cout << gsl_vector_get(c, n) << endl;
             }
             
-            /**** Print orbital and HF energy ****/
-            print_orbital(c, R_A, R_B);
+            /**** Print energy to screen and fill the .txt file ****/
             std::cout << "   " << endl;
-            std::cout << "Total DFT energy" << endl;
-            E0 = compute_E0(F, H, c) + 1./X[0];
-            std::cout << E0 << endl;
+            std::cout << "Total DFT energy: " << E0 << " H" << endl;
             std::cout << "*******************************************************" << endl;
             std::cout << "   " << endl;
             myfile << X[0] << "       " << E0 << endl;
         }  
         myfile.close();
+
+        std::cout << "Employed functional: " << func.info->name << endl;
+        std::cout << "E_xc[n] = (1 - a_x)*E_HF_x[n] + a_x*E_x[n] + E_c[n]" << endl;
+        std::cout << "Value of a_x: " << a_x << endl; 
     }
 
 
@@ -182,7 +230,7 @@ int main (int argc, char *argv[]){
 
 
 
-    /**** 2) EVOLUTION OF THE COEFFICIENTS C(t) AT FIXED X ****/
+    /**** EVOLUTION OF THE COEFFICIENTS C(t) AT FIXED X ****/
     if(string(argv[1]) == "Evolve_coefficients"){
         ofstream myfile;
 	    myfile.open("Energies_C_evolution.txt", ios :: out | ios :: trunc);
@@ -211,7 +259,7 @@ int main (int argc, char *argv[]){
 
 
 
-    /**** 3) CAR PARRINELLO MOLECULAR DYNAMICS ****/
+    /**** CAR PARRINELLO MOLECULAR DYNAMICS ****/
     if(string(argv[1]) == "MD_Car_Parrinello"){
 
         /**** Create the files for storing the energies and the coefficients ****/
@@ -287,7 +335,7 @@ int main (int argc, char *argv[]){
 
 
 
-    /**** 4) CONJUGATE GRADIENT (SINGLE RUN) ****/
+    /**** CONJUGATE GRADIENT (SINGLE RUN) ****/
     if(string(argv[1]) == "CG_min"){
         /**** Start with little equilibration cycle ****/
         for(n=0; n<25; n++){
@@ -663,6 +711,8 @@ int main (int argc, char *argv[]){
             coeff_file.open(coeff, ios_base::app);
         }
 
+        std::cout << "X" << "      " << "Energy (H)" << endl;
+
         for(n=1; n<=N_steps; n++){
 
             /**** Fill S, H and Q for electronic problem ****/
@@ -715,8 +765,9 @@ int main (int argc, char *argv[]){
             X[n + 1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[n], X[n-1]);
             std::cout << "  " << endl;
 
-            /**** Print to X_en file ****/
+            /**** Print to X_en file and to screen ****/
             X_en_file << X[n] << "    " << E0 << endl;
+            std::cout << X[n] << "    " << E0 << endl;
         }
 
         /**** Print the X[n+1] to restart the simulation ****/

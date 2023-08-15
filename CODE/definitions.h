@@ -22,7 +22,7 @@ struct R {
 };
 
 #define FUNCTIONAL_X XC_LDA_X
-#define FUNCTIONAL_C XC_LDA_C_PZ
+#define FUNCTIONAL_C XC_LDA_C_GL
 
 const int CP_iter = 500; /* Car-Parrinello iterations */
 const double m = 2.; /* fictitious mass for electronic problem */
@@ -34,7 +34,7 @@ const double h_N = 43*h; /* nuclear time scale*/
 const int N = 4;
 const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492}; 
 const double pi = 3.141592653589793; 
-const double a_x = 0.0; /* For the exchange/correlation part */
+const double a_x = 0.1; /* For the exchange/correlation part */
 
 
 
