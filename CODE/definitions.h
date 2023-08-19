@@ -22,10 +22,10 @@ struct R {
 };
 
 #define FUNCTIONAL_X XC_LDA_X
-#define FUNCTIONAL_C XC_LDA_C_GL
+#define FUNCTIONAL_C XC_LDA_C_PW
 
-const int CP_iter = 500; /* Car-Parrinello iterations */
-const double m = 2.; /* fictitious mass for electronic problem */
+const int CP_iter = 800; /* Car-Parrinello iterations */
+const double m = 2.0; /* fictitious mass for electronic problem */
 const double gamma_el= 1.0; /* electronic damping */
 const double M_N = 1836.5; /* nuclear mass */
 const double gamma_N = 15.0; /* nuclear damping */
@@ -34,7 +34,7 @@ const double h_N = 43*h; /* nuclear time scale*/
 const int N = 4;
 const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492}; 
 const double pi = 3.141592653589793; 
-const double a_x = 0.1; /* For the exchange/correlation part */
+const double a_x = 0.0; /* For the exchange/correlation part */
 
 
 
@@ -64,9 +64,11 @@ void build_Q(double Q[2*N][2*N][2*N][2*N], R R_A, R R_B);
 void two_body_F(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *F);
 
 
-/******** COMPUTE TOTAL ENERGY AND PRINT SOLUTION ****/
+/******** COMPUTE TOTAL ENERGY AND PRINT ORBITAL ****/
 double compute_E0(gsl_matrix *F, gsl_matrix *H, gsl_vector *c);
 void print_orbital(gsl_vector *c_new, R R_A, R R_B);
+double Orbital_kinetic_en(R R_A, R R_B, gsl_vector *c);
+double Nuclear_kinetic_en(double X_new, double X_old);
 
 
 /******** EVOLVE THE COEFFICIENTS IN TIME ********/
