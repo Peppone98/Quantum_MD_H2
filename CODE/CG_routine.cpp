@@ -121,7 +121,7 @@ double Get_beta(double norm, gsl_vector *r){
 }
 
 
-
+/**** This does not modify the c vector ****/
 double Get_norm_C_cg(gsl_matrix *S, gsl_vector *c){
     double norm;
     gsl_vector *tmp = gsl_vector_alloc(2*N);
@@ -147,6 +147,7 @@ double Get_lambda_CP(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lam
     A = get_A(c_old, S);
     B = get_B(c, c_old, S);
     C = get_C(c, S);
+    cout << "ABC" << A << "  " << B << "   " << C << endl;
     lambda = lowest_positive_root(A, B, C);
 
     /**** Now adjust c ****/

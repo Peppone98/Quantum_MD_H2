@@ -26,7 +26,7 @@ int main (int argc, char *argv[]){
 
     /**** Initial nuclei positions ****/
     R_A.x = 0., R_A.y = 0., R_A.z = 0.;
-    R_B.x = 1.0, R_B.y = 0., R_B.z = 0.;
+    R_B.x = 1.2, R_B.y = 0., R_B.z = 0.;
 
     /**** Fill S and compute V ****/
     create_S(S, R_A, R_B);
@@ -90,7 +90,7 @@ int main (int argc, char *argv[]){
             std::cout << "   " << endl;
             std::cout << "HF energies: " << endl;
 
-            E0 = 1.0, E_old = 0-0;
+            E0 = 1.0, E_old = 0.0;
             while(fabs(E0 - E_old) > 1E-7){
 
                 /**** Build Fock matrix with the added exchange part ****/
@@ -169,7 +169,7 @@ int main (int argc, char *argv[]){
             std::cout << "   " << endl;
             std::cout << "DFT energies: " << endl;
 
-            E0 = 1.0, E_old = 0-0;
+            E0 = 1.0, E_old = 0.0;
             while(fabs(E0 - E_old) > 1E-7){
 
                 /**** Build Fock matrix with the added exchange part ****/
@@ -223,6 +223,110 @@ int main (int argc, char *argv[]){
 
 
 
+
+
+
+    /**** BORN OPPENHEIMER MOLECULAR DYNAMICS ****/
+    if(string(argv[1]) == "BOMD_HF"){
+
+        /**** Start with very short equilibration with CPMD to get the first lambda ****/
+        for(n=0; n<35; n++){
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
+
+        /**** Get the first reference value for lambda_shake ****/
+        double lambda_shake = lambda;
+        std::cout << lambda_shake << endl;
+
+        /**** Create the files for storing the energies and the coefficients ****/
+        string X_en = "MD_BO_X_energies.txt";
+        string coeff = "MD_BO_coeff.txt";
+        ofstream X_en_file;
+        ofstream coeff_file;
+        X_en_file.open(X_en, ios :: out | ios :: trunc);
+        coeff_file.open(coeff, ios :: out | ios :: trunc);
+
+        for(n=1; n<100; n++){
+
+            /**** Fill H and Q for electronic problem ****/
+            one_body_H(H, R_A, R_B);
+            build_Q(Q, R_A, R_B);
+
+            /**** Create S and the V matrix, needed for the SC procedure ****/
+            create_S(S, R_A, R_B);
+            gsl_matrix_memcpy(S_auxiliary, S);
+            diag_S(S_auxiliary, V);
+
+            /**** SC while loop: here we get the c coefficients ****/
+            E0 = 1.0, E_old = 0.0;
+            std::cout << "******** SC procedure *******" << endl;
+            while(fabs(E0 - E_old) > 1E-7){
+
+                /**** Build Fock matrix with the added exchange part (self-consistent part!) ****/
+                two_body_F(Q, c, F);
+                gsl_matrix_add(F, H);
+
+                /**** tmp_F is needed beacuse solve_FC_eSC destroys lower part of F ****/
+                gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
+                gsl_matrix_memcpy(tmp_F, F);
+                E_1s = solve_FC_eSC(tmp_F, V, U);
+
+                /**** Compute the energy and print it ****/
+                E_old = E0;
+                E0 = compute_E0(F, H, c) + 1./X[n];
+                std::cout << E0 << endl;
+
+                /**** Get the c vector from eigenvector matrix U ****/
+                gsl_matrix_get_col(c, U, 0);
+                gsl_matrix_free(tmp_F);
+            }
+
+            /**** Print the coefficients to file ****/
+            for(int i=0; i<2*N; i++){
+                coeff_file << gsl_vector_get(c, i) <<  "    ";
+            }
+            coeff_file << endl;
+
+            /**** Compute the correct energy after the update of F ****/
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            E0 = compute_E0(F, H, c) + 1./X[n];
+
+            /**** Fill H, Q and F for nuclear problem ****/
+            one_body_dH_dX(H, R_A, R_B, X[n]);
+            build_dQ_dX(Q, R_A, R_B, X[n]);
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+
+            /**** Update X using the newly computed lambda_shake ****/
+            dE0_dX = compute_dE0_dX(F, H, c, X[n]);
+            double denominator = dsigma_dX(c, R_A, R_B);
+            std::cout << "Before: " << R_B.x << endl;
+            partial_update_shake(X[n], X[n - 1], &R_B, dE0_dX, lambda_shake, denominator);
+            std::cout << "After: " << R_B.x << endl;
+            double new_denominator = denominator*dsigma_dX(c, R_A, R_B);
+            double numerator = sigma(c, R_A, R_B) - 1.0;
+            lambda_shake = lambda_shake + numerator/new_denominator;
+            std::cout << "Correction to lambda: " << numerator/new_denominator << endl;
+            X[n + 1] = 2.0*X[n] - X[n - 1] - h_N*h_N/M_N*(2.0*dE0_dX + lambda_shake*denominator);
+            R_B.x = X[n + 1];
+            std::cout << "New X: " << R_B.x << endl;
+            std::cout << "  " << endl;
+            X_en_file << X[n] << "    " << E0 << endl;
+            std::cout << "lambda_shake: " << lambda_shake << endl;    
+        }
+
+        X_en_file.close();
+        coeff_file.close();
+
+        /**** Print to screen the record of the simulation ****/
+        std::cout << "Born-Oppenheimer Molecular Dynamics has been executed for " << CP_iter << " steps" << endl;
+        std::cout << "  " << endl;
+        std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
+        std::cout << "The C coefficients have been written to " << coeff << endl;
+    }
 
 
 
@@ -301,7 +405,7 @@ int main (int argc, char *argv[]){
             v = -v_max + 2.0*v_max*rand()/RAND_MAX;
             X[0] = X[1] - v*h_N; 
 
-            cout << X[1] << "  " << X[0] << endl;
+            std::cout << X[1] << "  " << X[0] << endl;
 
             for(n=1; n<CP_iter-1; n++){
 

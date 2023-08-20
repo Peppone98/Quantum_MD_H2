@@ -12,13 +12,13 @@ double evolve_X(gsl_vector *c, gsl_matrix *S, R *R_B, double lambda, double dE0_
     /**** The function "normalization" also changes the c, that is the reason of c_tmp ****/
     double norm = normalization(c_tmp, S);
 
-    /**** This is a mistery ****/
+    /* This is a mistery */
     double lambda_tmp = lambda*0.25*(m + h*gamma_el);
 
     /**** Equation of motion for X ****/
     double X_new = 2.*X*M_N - X_old*(M_N - 0.5*gamma_N*h_N);
 
-    /* mysterious factor 2 */
+    /**** Factor 2: remember that the reduced mass is M_N/2 ****/
     X_new -= 2.*h_N*h_N*(dE0_dX + lambda_tmp*norm);
     X_new = X_new/(M_N + 0.5*gamma_N*h_N);
     
@@ -26,6 +26,7 @@ double evolve_X(gsl_vector *c, gsl_matrix *S, R *R_B, double lambda, double dE0_
     R_B->x = X_new;  
     return X_new;
 }
+
 
 /**** The matrices must be dQ/dX and dH/dX when called ****/
 double compute_dE0_dX(gsl_matrix *F, gsl_matrix *H, gsl_vector *c, double X){

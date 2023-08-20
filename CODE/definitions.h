@@ -141,7 +141,15 @@ double Get_Simpson_z(double a, double b, double eps, double alpha, double beta, 
 double Adaptive_Simpsons_z(double a, double b, double eps, double whole, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
 void Adaptive_Ex_Corr(gsl_matrix *V_xc, gsl_matrix *dVxc_dX, R R_A, R R_B, gsl_vector *c, double X, string s);
 
+
 /********* FILE HANDLINGS *********************/
 void Remove_last_line(string filename);
+
+
+/********** SHAKE IMPLEMENTATION ***************/
+void partial_update_shake(double X, double X_old, R *R_B, double dE0_dX, double lambda_guess, double dsig_dX);
+double dsigma_dX(gsl_vector *c, R R_A, R R_B);
+double sigma(gsl_vector *c, R R_A, R R_B);
+double Get_X_shake(double X, double X_old, gsl_vector *c, R R_A, R R_B, double dE0_dX, double lambda_guess, double eps);
 
 #endif
