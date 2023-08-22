@@ -147,7 +147,6 @@ double Get_lambda_CP(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lam
     A = get_A(c_old, S);
     B = get_B(c, c_old, S);
     C = get_C(c, S);
-    cout << "ABC" << A << "  " << B << "   " << C << endl;
     lambda = lowest_positive_root(A, B, C);
 
     /**** Now adjust c ****/

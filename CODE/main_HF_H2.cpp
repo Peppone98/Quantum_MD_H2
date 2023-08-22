@@ -248,7 +248,7 @@ int main (int argc, char *argv[]){
         X_en_file.open(X_en, ios :: out | ios :: trunc);
         coeff_file.open(coeff, ios :: out | ios :: trunc);
 
-        for(n=1; n<100; n++){
+        for(n=1; n<400; n++){
 
             /**** Fill H and Q for electronic problem ****/
             one_body_H(H, R_A, R_B);
@@ -307,15 +307,15 @@ int main (int argc, char *argv[]){
             partial_update_shake(X[n], X[n - 1], &R_B, dE0_dX, lambda_shake, denominator);
             std::cout << "After: " << R_B.x << endl;
             double new_denominator = denominator*dsigma_dX(c, R_A, R_B);
-            double numerator = sigma(c, R_A, R_B) - 1.0;
-            lambda_shake = lambda_shake + numerator/new_denominator;
+            double numerator = sigma(c, R_A, R_B);
+            double new_lambda = lambda_shake + numerator/new_denominator;
             std::cout << "Correction to lambda: " << numerator/new_denominator << endl;
-            X[n + 1] = 2.0*X[n] - X[n - 1] - h_N*h_N/M_N*(2.0*dE0_dX + lambda_shake*denominator);
+            X[n + 1] = 2.0*X[n] - X[n - 1] - h_N*h_N/M_N*(2.0*dE0_dX + new_lambda*denominator);
             R_B.x = X[n + 1];
             std::cout << "New X: " << R_B.x << endl;
             std::cout << "  " << endl;
             X_en_file << X[n] << "    " << E0 << endl;
-            std::cout << "lambda_shake: " << lambda_shake << endl;    
+            std::cout << "lambda_shake: " << new_lambda << endl;    
         }
 
         X_en_file.close();
@@ -457,6 +457,8 @@ int main (int argc, char *argv[]){
             std::cout << "Trajectory " << to_string(i) << " has been written in HF_traj" << endl;
         }
         coeff_file.close();
+
+        Print_density(c, X[CP_iter - 2]);
         
 
         /**** Print to screen the record of the simulation ****/
@@ -474,60 +476,6 @@ int main (int argc, char *argv[]){
 
 
 
-
-
-
-
-    /**** CONJUGATE GRADIENT (SINGLE RUN) ****/
-    if(string(argv[1]) == "CG_min"){
-        /**** Start with little equilibration cycle ****/
-        for(n=0; n<25; n++){
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
-            lambda = update_c(F, S, c, c_old);
-        }
-
-        double lambda_CP = 0.0, E_final = 0.0, E_initial = 0.0;
-
-        /**** Fill the Hessian and b (minus the gradient of E, the electronic energy) ****/
-        gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
-        gsl_vector *b = gsl_vector_alloc(2*N);
-        Get_Hessian_and_b(Hessian, b, Q, S, F, c);
-
-        /**** Compute the energy before minimisation ****/
-        E_initial = compute_E0(F, H, c);
-
-        /**** Apply the CG routine to get the increment Delta_c ****/
-        gsl_vector *Delta_c = gsl_vector_alloc(2*N);
-        gsl_vector_set_all(Delta_c, 0.0);
-        Conj_grad(Hessian, b, Delta_c, 0.001);
-
-        /**** Print the increment ****/
-        std::cout << "Vector of Delta_C_cg: " << endl;
-        for(n=0; n<2*N; n++){
-            std::cout << gsl_vector_get(Delta_c, n) << endl;
-        }
-        
-        /**** Copy c in c_old and get the new vector ****/
-        gsl_vector_memcpy(c_old, c);
-        gsl_vector_add(c, Delta_c);
-
-        std::cout << "Vector of coefficients resulting from CG alone: " << endl;
-        for(n=0; n<2*N; n++){
-            std::cout << gsl_vector_get(c, n) << endl;
-        }
-        
-        /**** Update the c (in CP fashion) ****/
-        lambda_CP = Get_lambda_CP(S, c, c_old, lambda);
-        E_final = compute_E0(F, H, c);
-        norm = Get_norm_C_cg(S, c);
-
-        std::cout << "Initial energy: " << E_initial << endl;
-        std::cout << "Energy difference (should be negative!): " << E_final - E_initial << endl;
-        std::cout << "Normalisation: " << norm << endl;
-        std::cout << "Gap between lambdas: " << lambda_CP - lambda << endl;
-
-    }
 
     
 

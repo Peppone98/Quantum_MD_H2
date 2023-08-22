@@ -154,21 +154,21 @@ void create_Ex_Corr(gsl_matrix *V_xc, R R_A, R R_B, gsl_vector *c, double X){
 
 void Print_density(gsl_vector *c, double X){
     ofstream myfile;
-	myfile.open("Density.txt", ios :: out | ios :: trunc);
+	myfile.open("outputs/Density.txt", ios :: out | ios :: trunc);
 
     int i, j, N_mesh = 100;
     double z, rho;
 
     /**** Define the mesh for rho ****/
-    double rho_a = 0.0, rho_b = 2.0;
+    double rho_a = -1.7, rho_b = 1.7;
     double drho = (rho_b - rho_a)/N_mesh;
 
     /**** Define the mesh for z ****/
-    double z_a = -2.0, z_b = 3.0;
+    double z_a = -2.0, z_b = 3.4;
     double dz = (z_b - z_a)/N_mesh;
 
     for(i=0; i<N_mesh; i++){
-        rho = i*drho;
+        rho = rho_a + i*drho;
         for(j=0; j<N_mesh; j++){
             z = z_a + j*dz;
             myfile << density(rho, z, c, X) << "       ";
