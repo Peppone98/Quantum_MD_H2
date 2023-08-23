@@ -229,6 +229,9 @@ int main (int argc, char *argv[]){
     /**** BORN OPPENHEIMER MOLECULAR DYNAMICS ****/
     if(string(argv[1]) == "BOMD_HF"){
 
+        /**** Useful variables ****/
+        double denominator, new_denominator, numerator, new_lambda;
+
         /**** Start with very short equilibration with CPMD to get the first lambda ****/
         for(n=0; n<35; n++){
             two_body_F(Q, c, F);
@@ -248,7 +251,7 @@ int main (int argc, char *argv[]){
         X_en_file.open(X_en, ios :: out | ios :: trunc);
         coeff_file.open(coeff, ios :: out | ios :: trunc);
 
-        for(n=1; n<400; n++){
+        for(n=1; n<CP_iter - 1; n++){
 
             /**** Fill H and Q for electronic problem ****/
             one_body_H(H, R_A, R_B);
@@ -300,22 +303,13 @@ int main (int argc, char *argv[]){
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
 
-            /**** Update X using the newly computed lambda_shake ****/
+            /**** Compute energy gradient & update the X with shake ****/
             dE0_dX = compute_dE0_dX(F, H, c, X[n]);
-            double denominator = dsigma_dX(c, R_A, R_B);
-            std::cout << "Before: " << R_B.x << endl;
-            partial_update_shake(X[n], X[n - 1], &R_B, dE0_dX, lambda_shake, denominator);
-            std::cout << "After: " << R_B.x << endl;
-            double new_denominator = denominator*dsigma_dX(c, R_A, R_B);
-            double numerator = sigma(c, R_A, R_B);
-            double new_lambda = lambda_shake + numerator/new_denominator;
-            std::cout << "Correction to lambda: " << numerator/new_denominator << endl;
-            X[n + 1] = 2.0*X[n] - X[n - 1] - h_N*h_N/M_N*(2.0*dE0_dX + new_lambda*denominator);
+            X[n + 1] = Get_X_shake(X[n], X[n - 1], c, R_A, R_B, dE0_dX, lambda_shake, 1E-4);
             R_B.x = X[n + 1];
+
             std::cout << "New X: " << R_B.x << endl;
-            std::cout << "  " << endl;
             X_en_file << X[n] << "    " << E0 << endl;
-            std::cout << "lambda_shake: " << new_lambda << endl;    
         }
 
         X_en_file.close();

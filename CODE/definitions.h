@@ -147,7 +147,6 @@ void Remove_last_line(string filename);
 
 
 /********** SHAKE IMPLEMENTATION ***************/
-void partial_update_shake(double X, double X_old, R *R_B, double dE0_dX, double lambda_guess, double dsig_dX);
 double dsigma_dX(gsl_vector *c, R R_A, R R_B);
 double sigma(gsl_vector *c, R R_A, R R_B);
 double Get_X_shake(double X, double X_old, gsl_vector *c, R R_A, R R_B, double dE0_dX, double lambda_guess, double eps);
