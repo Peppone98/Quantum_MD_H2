@@ -44,7 +44,7 @@ double Get_X_shake(double X, double X_old, gsl_vector *c, R R_A, R R_B, double d
     X_new = 2.0*X - X_old - h_N*h_N/M_N*(2.0*dE0_dX + lambda_guess*dsig_dX);
     
     /**** Shake iterative cycle ****/
-    while(fabs(numerator) > 1E-3){
+    while(fabs(numerator) > eps){
         /**** Update the R_B ****/
         R_B.x = X_new;
 

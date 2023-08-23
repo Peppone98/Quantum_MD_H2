@@ -10,7 +10,7 @@ int main (int argc, char *argv[]){
 	int n, n_iter = 20;
 	R R_A, R_B;
     double Q[2*N][2*N][2*N][2*N];
-    double X[CP_iter];
+    double X[iter];
     double E_1s=0., lambda=0., E0 = 0., E_old = 0., dE0_dX = 0., T_N = 0., T_e = 0.0;
 	gsl_matrix *S = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *S_auxiliary = gsl_matrix_alloc(2*N, 2*N);
@@ -49,16 +49,14 @@ int main (int argc, char *argv[]){
     /**** List of options: ****/
     /**** SC_Hartree_Fock ****/
     /**** SC_DFT ****/
+    /**** BOMD_HF ****/
     /**** Evolve_coefficients ****/
     /**** CPMD_HF ****/
     /**** CG_min ****/
     /**** CG_CP ****/
+    /**** CG_shake ****/
     /**** CG_CP_superposition ****/
-    /**** EX_CORR ****/
-    /**** XC_DER ****/
     /**** CPMD_DFT ****/
-    /**** ADAPTIVE ****/
-    /**** XC_DER_ADAPTIVE ****/
 
 
 
@@ -305,7 +303,7 @@ int main (int argc, char *argv[]){
 
             /**** Compute energy gradient & update the X with shake ****/
             dE0_dX = compute_dE0_dX(F, H, c, X[n]);
-            X[n + 1] = Get_X_shake(X[n], X[n - 1], c, R_A, R_B, dE0_dX, lambda_shake, 1E-4);
+            X[n + 1] = Get_X_shake(X[n], X[n - 1], c, R_A, R_B, dE0_dX, lambda_shake, 1E-3);
             R_B.x = X[n + 1];
 
             std::cout << "New X: " << R_B.x << endl;
@@ -477,6 +475,8 @@ int main (int argc, char *argv[]){
 
 
 
+
+
     /**** CONJUGATE GRADIENT - NUCLEI MOTION WITH CP ****/
     if(string(argv[1]) == "CG_CP"){
 
@@ -578,6 +578,102 @@ int main (int argc, char *argv[]){
 
 
 
+
+    /**** CONJUGATE GRADIENT - NUCLEI MOTION WITH SHAKE ****/
+    if(string(argv[1]) == "CG_shake"){
+
+        /**** Start with little equilibration cycle with CPMD ****/
+        for(n=0; n<35; n++){
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
+        
+        /**** The first lambda comes from the CP equilibration ****/
+        double lambda_shake = lambda;
+
+        /**** Threshold for conjugate gradient convergence ****/
+        double eps = 0.001;
+
+        /**** Open files to write the X, energies and coefficients ****/
+        string X_en = "CG_shake_X_energies.txt";
+        string coeff = "CG_shake_coeff.txt";
+        ofstream X_en_file;
+        ofstream coeff_file;
+	    X_en_file.open(X_en, ios :: out | ios :: trunc);
+        coeff_file.open(coeff, ios :: out | ios :: trunc);
+
+        /**** Create Hessian, b, and increment of C ****/
+        gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
+        gsl_vector *b = gsl_vector_alloc(2*N);
+        gsl_vector *Delta_c = gsl_vector_alloc(2*N);
+
+        for(n=1; n<iter; n++){
+
+            /**** Print the coefficients to file ****/
+            for(int i=0; i<2*N; i++){
+                coeff_file << gsl_vector_get(c, i) <<  "    ";
+            }
+            coeff_file << endl;
+
+            /**** Fill the Hessian and b (minus the gradient of E) ****/
+            Get_Hessian_and_b(Hessian, b, Q, S, F, c);
+
+            /**** Apply the CG routine to get the increment Delta_c ****/
+            gsl_vector_set_all(Delta_c, 0.0);
+            Conj_grad(Hessian, b, Delta_c, eps);
+
+            /**** Update c (adding Delta_c) ****/
+            gsl_vector_add(c, Delta_c);
+
+            /**** Compute the correct energy after the update of c ****/
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            E0 = compute_E0(F, H, c) + 1./X[n];
+
+            /**** Fill H, Q and F for nuclear problem (for the calculus of dE0/dX) ****/
+            one_body_dH_dX(H, R_A, R_B, X[n]);
+            build_dQ_dX(Q, R_A, R_B, X[n]);
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+
+            /**** Update X using the newly computed lambda_CP ****/
+            dE0_dX = compute_dE0_dX(F, H, c, X[n]);
+            X[n + 1] = Get_X_shake(X[n], X[n - 1], c, R_A, R_B, dE0_dX, lambda_shake, 1E-3);
+            R_B.x = X[n + 1];
+            std::cout << X[n] << "    " << E0 << endl;
+            X_en_file << X[n] << "    " << E0 << endl;
+
+            /**** Prepare the S, H, Q and F for new electronic problem ****/
+            create_S(S, R_A, R_B);
+            one_body_H(H, R_A, R_B);
+            build_Q(Q, R_A, R_B);
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+        }
+
+        X_en_file.close();
+        coeff_file.close();
+
+        std::cout << "Conjugate gradient minimisation has been executed for " << iter << " steps" << endl;
+        std::cout << "  " << endl;
+        std::cout << "Parameters of the simulation: " << endl;
+        std::cout << "Nuclear step h_N: " << h_N << endl;
+        std::cout << "Nuclear mass: " << M_N << endl;
+        std::cout << "Nuclear damping: " << gamma_N << endl;
+        std::cout << "  " << endl;
+        std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
+        std::cout << "The C coefficients have been written to " << coeff << endl;
+    }
+
+
+
+
+
+
+
+
+
     /**** CG AND CP SUPERPOSITION ****/
     if(string(argv[1]) == "CG_CP_superposition"){
         int i, j;
@@ -632,6 +728,8 @@ int main (int argc, char *argv[]){
 
 
 
+
+
     /**** EXCHANGE AND CORRELATION PART ****/
     if(string(argv[1]) == "EX_CORR"){
         /**** Little equilibration cycle with CPMD ****/
@@ -671,33 +769,6 @@ int main (int argc, char *argv[]){
 
 
 
-
-
-
-    /**** EXCHANGE AND CORRELATION DERIVATIVES PART ****/
-    if(string(argv[1]) == "XC_DER"){
-        /**** Little equilibration cycle with CPMD ****/
-        for(n=0; n<35; n++){
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
-            lambda = update_c(F, S, c, c_old);
-        }
-
-        /**** Print density ****/
-        Print_density_derivative(c, X[0]);
-
-        /**** Create the derivative of XC matrix ****/
-        create_dVxc_dX(dVxc_dX, R_A, R_B, c, X[0]);
-
-        std::cout << "Matrix dVxc_dX: " << endl;
-        for(int k=0; k<2*N; k++){
-            for(int j=0; j<2*N; j++){
-                std::cout << gsl_matrix_get(dVxc_dX, k, j) << "   ";
-            }
-            std::cout << "  " << endl;
-        }
-
-    }
 
 
 
@@ -877,66 +948,6 @@ int main (int argc, char *argv[]){
         std::cout << "  " << endl;
         std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
         std::cout << "The C coefficients have been written to " << coeff << endl;
-    }
-
-
-
-
-
-
-
-
-
-    /**** ADAPTIVE INTEGRATION ****/
-    if(string(argv[1]) == "ADAPTIVE"){
-        /**** Little equilibration cycle with CPMD ****/
-        for(n=0; n<35; n++){
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
-            lambda = update_c(F, S, c, c_old);
-        }
-
-        /**** Create the derivative of XC matrix ****/
-        string s = "V_xc";
-        Adaptive_Ex_Corr(V_xc, dVxc_dX, R_A, R_B, c, X[0], s);
-
-        std::cout << "Matrix V_xc: " << endl;
-        for(int k=0; k<2*N; k++){
-            for(int j=0; j<2*N; j++){
-                std::cout << gsl_matrix_get(V_xc, k, j) << "   ";
-            }
-            std::cout << "  " << endl;
-        }
-
-    }
-
-
-
-
-
-
-
-    /**** XC DERIVATIVES (ADAPTIVE) ****/
-    if(string(argv[1]) == "XC_DER_ADAPTIVE"){
-        /**** Little equilibration cycle with CPMD ****/
-        for(n=0; n<35; n++){
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
-            lambda = update_c(F, S, c, c_old);
-        }
-
-        /**** Create the derivative of XC matrix ****/
-        string s = "dVxc_dX";
-        Adaptive_Ex_Corr(V_xc, dVxc_dX, R_A, R_B, c, X[0], s);
-
-        std::cout << "Matrix dVxc_dX: " << endl;
-        for(int k=0; k<2*N; k++){
-            for(int j=0; j<2*N; j++){
-                std::cout << gsl_matrix_get(dVxc_dX, k, j) << "   ";
-            }
-            std::cout << "  " << endl;
-        }
-
     }
 
 

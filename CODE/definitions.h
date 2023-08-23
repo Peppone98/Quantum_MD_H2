@@ -25,6 +25,7 @@ struct R {
 #define FUNCTIONAL_C XC_LDA_C_PW
 
 const int CP_iter = 800; /* Car-Parrinello iterations */
+const int iter = 1600; /* iterations used in BOMD or Conjugate Gradient */
 const double m = 2.0; /* fictitious mass for electronic problem */
 const double gamma_el= 1.0; /* electronic damping */
 const double M_N = 1836.5; /* nuclear mass */
