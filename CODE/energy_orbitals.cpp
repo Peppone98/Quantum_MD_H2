@@ -60,7 +60,9 @@ double Orbital_kinetic_en(R R_A, R R_B, gsl_vector *c){
 			sum = c_p*c_q*sum;
 		}
 	}
-	return 0.5*m*sum;
+
+	/**** We have a factor 2 because we have two electrons ****/
+	return m*sum;
 }
 
 
@@ -69,4 +71,37 @@ double Nuclear_kinetic_en(double X_new, double X_old){
 
 	/**** The reduced mass is 0.5*M_N, this justifies the 0.25 factor ****/
 	return 0.25*M_N*v*v;
+}
+
+
+double Electron_electron_en(gsl_vector *c, gsl_matrix *F){
+	double result = 0.0;
+	gsl_vector *tmp = gsl_vector_alloc(2*N);
+
+    /**** c^T * F * c ****/
+    gsl_blas_dgemv(CblasNoTrans, 1., F, c, 0., tmp);
+    gsl_blas_ddot(c, tmp, &result);
+    return result;
+}
+
+
+double Electron_nuclei_en(R R_A, R R_B, gsl_vector *c){
+	int p, q;
+	double c_p, c_q, sum = 0.0;
+
+	for(p=0; p<N; p++){
+		c_p = gsl_vector_get(c, p);
+		for(q=0; q<N; q++){
+			c_q = gsl_vector_get(c, q);
+
+			/**** The sum is over all the matrix elements ****/
+			sum += el_nucl(a[p], a[q], R_A, R_A, R_A);
+			sum += el_nucl(a[p], a[q], R_A, R_A, R_B);
+			sum += el_nucl(a[p], a[q], R_A, R_B, R_A);
+			sum += el_nucl(a[p], a[q], R_A, R_B, R_B);
+			sum = 2.0*c_p*c_q*sum;
+		}
+	}
+	/**** 2 electrons ****/
+	return 2.0*sum;
 }

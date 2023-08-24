@@ -31,6 +31,8 @@ double sigma(gsl_vector *c, R R_A, R R_B){
     /**** c^T * dS_dX * c - 1 ****/
     gsl_blas_dgemv(CblasNoTrans, 1., S, c, 0., tmp);
     gsl_blas_ddot(c, tmp, &result);
+    gsl_vector_free(tmp);
+    gsl_matrix_free(S);
     return result - 1.0;
 }
 

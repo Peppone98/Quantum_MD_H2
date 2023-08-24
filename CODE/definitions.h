@@ -25,7 +25,7 @@ struct R {
 #define FUNCTIONAL_C XC_LDA_C_PW
 
 const int CP_iter = 800; /* Car-Parrinello iterations */
-const int iter = 1600; /* iterations used in BOMD or Conjugate Gradient */
+const int iter = 2000; /* iterations used in BOMD or Conjugate Gradient */
 const double m = 2.0; /* fictitious mass for electronic problem */
 const double gamma_el= 1.0; /* electronic damping */
 const double M_N = 1836.5; /* nuclear mass */
@@ -70,6 +70,8 @@ double compute_E0(gsl_matrix *F, gsl_matrix *H, gsl_vector *c);
 void print_orbital(gsl_vector *c_new, R R_A, R R_B);
 double Orbital_kinetic_en(R R_A, R R_B, gsl_vector *c);
 double Nuclear_kinetic_en(double X_new, double X_old);
+double Electron_electron_en(gsl_vector *c, gsl_matrix *F);
+double Electron_nuclei_en(R R_A, R R_B, gsl_vector *c);
 
 
 /******** EVOLVE THE COEFFICIENTS IN TIME ********/

@@ -7,11 +7,11 @@ using namespace std;
 int main (int argc, char *argv[]){
 
     /**** Create space for matrices and vectors ****/
-	int n, n_iter = 20;
+	int n;
 	R R_A, R_B;
     double Q[2*N][2*N][2*N][2*N];
     double X[iter];
-    double E_1s=0., lambda=0., E0 = 0., E_old = 0., dE0_dX = 0., T_N = 0., T_e = 0.0;
+    double E_1s=0., lambda=0., E0 = 0., E_old = 0., dE0_dX = 0., T_N = 0., T_e = 0.0, E_ee = 0.0, E_eN = 0.0;
 	gsl_matrix *S = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *S_auxiliary = gsl_matrix_alloc(2*N, 2*N);
 	gsl_matrix *H = gsl_matrix_alloc(2*N, 2*N);
@@ -227,9 +227,6 @@ int main (int argc, char *argv[]){
     /**** BORN OPPENHEIMER MOLECULAR DYNAMICS ****/
     if(string(argv[1]) == "BOMD_HF"){
 
-        /**** Useful variables ****/
-        double denominator, new_denominator, numerator, new_lambda;
-
         /**** Start with very short equilibration with CPMD to get the first lambda ****/
         for(n=0; n<35; n++){
             two_body_F(Q, c, F);
@@ -242,14 +239,14 @@ int main (int argc, char *argv[]){
         std::cout << lambda_shake << endl;
 
         /**** Create the files for storing the energies and the coefficients ****/
-        string X_en = "MD_BO_X_energies.txt";
-        string coeff = "MD_BO_coeff.txt";
+        string X_en = "outputs/MD_BO_X_energies.txt";
+        string coeff = "outputs/MD_BO_coeff.txt";
         ofstream X_en_file;
         ofstream coeff_file;
         X_en_file.open(X_en, ios :: out | ios :: trunc);
         coeff_file.open(coeff, ios :: out | ios :: trunc);
 
-        for(n=1; n<CP_iter - 1; n++){
+        for(n=1; n<iter - 1; n++){
 
             /**** Fill H and Q for electronic problem ****/
             one_body_H(H, R_A, R_B);
@@ -262,7 +259,6 @@ int main (int argc, char *argv[]){
 
             /**** SC while loop: here we get the c coefficients ****/
             E0 = 1.0, E_old = 0.0;
-            std::cout << "******** SC procedure *******" << endl;
             while(fabs(E0 - E_old) > 1E-7){
 
                 /**** Build Fock matrix with the added exchange part (self-consistent part!) ****/
@@ -277,7 +273,6 @@ int main (int argc, char *argv[]){
                 /**** Compute the energy and print it ****/
                 E_old = E0;
                 E0 = compute_E0(F, H, c) + 1./X[n];
-                std::cout << E0 << endl;
 
                 /**** Get the c vector from eigenvector matrix U ****/
                 gsl_matrix_get_col(c, U, 0);
@@ -292,6 +287,7 @@ int main (int argc, char *argv[]){
 
             /**** Compute the correct energy after the update of F ****/
             two_body_F(Q, c, F);
+            E_ee = Electron_electron_en(c, F);
             gsl_matrix_add(F, H);
             E0 = compute_E0(F, H, c) + 1./X[n];
 
@@ -306,15 +302,19 @@ int main (int argc, char *argv[]){
             X[n + 1] = Get_X_shake(X[n], X[n - 1], c, R_A, R_B, dE0_dX, lambda_shake, 1E-3);
             R_B.x = X[n + 1];
 
-            std::cout << "New X: " << R_B.x << endl;
-            X_en_file << X[n] << "    " << E0 << endl;
+            /**** Print relevant quantities ****/
+            T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
+            T_e = Orbital_kinetic_en(R_A, R_B, c);
+            E_eN = Electron_nuclei_en(R_A, R_B, c);
+            std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << E_ee << "    " << E_eN << endl;
+            X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << E_ee << "    " << E_eN << endl;
         }
 
         X_en_file.close();
         coeff_file.close();
 
         /**** Print to screen the record of the simulation ****/
-        std::cout << "Born-Oppenheimer Molecular Dynamics has been executed for " << CP_iter << " steps" << endl;
+        std::cout << "Born-Oppenheimer Molecular Dynamics has been executed for " << iter << " steps" << endl;
         std::cout << "  " << endl;
         std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
         std::cout << "The C coefficients have been written to " << coeff << endl;
@@ -596,8 +596,8 @@ int main (int argc, char *argv[]){
         double eps = 0.001;
 
         /**** Open files to write the X, energies and coefficients ****/
-        string X_en = "CG_shake_X_energies.txt";
-        string coeff = "CG_shake_coeff.txt";
+        string X_en = "outputs/CG_shake_X_energies.txt";
+        string coeff = "outputs/CG_shake_coeff.txt";
         ofstream X_en_file;
         ofstream coeff_file;
 	    X_en_file.open(X_en, ios :: out | ios :: trunc);
@@ -610,11 +610,12 @@ int main (int argc, char *argv[]){
 
         for(n=1; n<iter; n++){
 
-            /**** Print the coefficients to file ****/
-            for(int i=0; i<2*N; i++){
-                coeff_file << gsl_vector_get(c, i) <<  "    ";
-            }
-            coeff_file << endl;
+            /**** Prepare the S, H, Q and F for new electronic problem ****/
+            create_S(S, R_A, R_B);
+            one_body_H(H, R_A, R_B);
+            build_Q(Q, R_A, R_B);
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
 
             /**** Fill the Hessian and b (minus the gradient of E) ****/
             Get_Hessian_and_b(Hessian, b, Q, S, F, c);
@@ -626,10 +627,16 @@ int main (int argc, char *argv[]){
             /**** Update c (adding Delta_c) ****/
             gsl_vector_add(c, Delta_c);
 
-            /**** Compute the correct energy after the update of c ****/
+            /**** Update F and compute the correct energy after the update of c ****/
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
             E0 = compute_E0(F, H, c) + 1./X[n];
+
+            /**** Print the coefficients to file ****/
+            for(int i=0; i<2*N; i++){
+                coeff_file << gsl_vector_get(c, i) <<  "    ";
+            }
+            coeff_file << endl;
 
             /**** Fill H, Q and F for nuclear problem (for the calculus of dE0/dX) ****/
             one_body_dH_dX(H, R_A, R_B, X[n]);
@@ -641,15 +648,14 @@ int main (int argc, char *argv[]){
             dE0_dX = compute_dE0_dX(F, H, c, X[n]);
             X[n + 1] = Get_X_shake(X[n], X[n - 1], c, R_A, R_B, dE0_dX, lambda_shake, 1E-3);
             R_B.x = X[n + 1];
-            std::cout << X[n] << "    " << E0 << endl;
-            X_en_file << X[n] << "    " << E0 << endl;
 
-            /**** Prepare the S, H, Q and F for new electronic problem ****/
-            create_S(S, R_A, R_B);
-            one_body_H(H, R_A, R_B);
-            build_Q(Q, R_A, R_B);
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
+            /**** Exclude first points (little equilibration is needed) ****/
+            if(n > 30){
+                T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
+                T_e = Orbital_kinetic_en(R_A, R_B, c);
+                std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << endl;
+                X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << endl;
+            }
         }
 
         X_en_file.close();
@@ -922,8 +928,10 @@ int main (int argc, char *argv[]){
             std::cout << "  " << endl;
 
             /**** Print to X_en file and to screen ****/
-            X_en_file << X[n] << "    " << E0 << endl;
-            std::cout << X[n] << "    " << E0 << endl;
+            T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
+            T_e = Orbital_kinetic_en(R_A, R_B, c);
+            std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << endl;
+            X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << endl;
         }
 
         /**** Print the X[n+1] to restart the simulation ****/

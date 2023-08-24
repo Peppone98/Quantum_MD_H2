@@ -35,6 +35,7 @@ double laplacian(double alpha, double beta, R R_A, R R_B){
     return alpha*beta/(alpha + beta)*tmp*overlap(alpha, beta, R_A, R_B);
 }
 
+
 double F0(double x){
     if(x == 0.){
         return 1;
@@ -42,6 +43,7 @@ double F0(double x){
         return sqrt(pi/(4.*x))*erf(sqrt(x));
     }
 }
+
 
 double el_nucl(double alpha, double beta, R R_A, R R_B, R R_C){
     double tmp = -2.*pi*K(alpha, beta, R_A, R_B)/(alpha + beta);

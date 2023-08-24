@@ -51,6 +51,7 @@ void one_body_H(gsl_matrix *H, R R_A, R R_B){
         }
 }
 
+
 void build_Q(double Q[2*N][2*N][2*N][2*N], R R_A, R R_B){
     int p, q, t, s;
     for(p=0; p<N; p++){
@@ -78,6 +79,7 @@ void build_Q(double Q[2*N][2*N][2*N][2*N], R R_A, R R_B){
         }
     }
 }
+
 
 void two_body_F(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *F){
     int p, q, t, s;
