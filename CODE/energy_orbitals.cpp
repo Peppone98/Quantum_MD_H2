@@ -62,7 +62,8 @@ double Orbital_kinetic_en(R R_A, R R_B, gsl_vector *c){
 	}
 
 	/**** We have a factor 2 because we have two electrons ****/
-	return m*sum;
+	/**** Also, remember that m_e = 1 in a.u. ****/
+	return sum;
 }
 
 
@@ -104,4 +105,15 @@ double Electron_nuclei_en(R R_A, R R_B, gsl_vector *c){
 	}
 	/**** 2 electrons ****/
 	return 2.0*sum;
+}
+
+
+double One_body(gsl_vector *c, gsl_matrix *H){
+	double result = 0.0;
+	gsl_vector *tmp = gsl_vector_alloc(2*N);
+
+    /**** c^T * H * c ****/
+    gsl_blas_dgemv(CblasNoTrans, 1., H, c, 0., tmp);
+    gsl_blas_ddot(c, tmp, &result);
+    return 2.0*result;
 }

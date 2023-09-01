@@ -22,7 +22,7 @@ struct R {
 };
 
 #define FUNCTIONAL_X XC_LDA_X
-#define FUNCTIONAL_C XC_LDA_C_PW
+#define FUNCTIONAL_C XC_LDA_C_GL
 
 const int CP_iter = 800; /* Car-Parrinello iterations */
 const int iter = 2000; /* iterations used in BOMD or Conjugate Gradient */
@@ -72,6 +72,7 @@ double Orbital_kinetic_en(R R_A, R R_B, gsl_vector *c);
 double Nuclear_kinetic_en(double X_new, double X_old);
 double Electron_electron_en(gsl_vector *c, gsl_matrix *F);
 double Electron_nuclei_en(R R_A, R R_B, gsl_vector *c);
+double One_body(gsl_vector *c, gsl_matrix *H);
 
 
 /******** EVOLVE THE COEFFICIENTS IN TIME ********/

@@ -29,7 +29,7 @@ void partial_evolution(gsl_matrix *F, gsl_vector *c, gsl_vector *c_old){
     gsl_vector *tmp = gsl_vector_alloc(2*N);
     gsl_vector_memcpy(tmp, c);
 
-    /**** (m + h*gamma_el)c(t+h) = 2c(t) - (m - h*gamma_el)c(t-h) ****/
+    /**** (m + h*gamma_el)c(t+h) = 2m*c(t) - (m - h*gamma_el)c(t-h) ****/
     gsl_vector_scale(c, m);
     gsl_vector_scale(c_old, 0.5*m - 0.5*h*gamma_el);
     gsl_vector_sub(c, c_old);

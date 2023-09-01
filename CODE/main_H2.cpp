@@ -290,6 +290,7 @@ int main (int argc, char *argv[]){
             E_ee = Electron_electron_en(c, F);
             gsl_matrix_add(F, H);
             E0 = compute_E0(F, H, c) + 1./X[n];
+            double check = One_body(c, H);
 
             /**** Fill H, Q and F for nuclear problem ****/
             one_body_dH_dX(H, R_A, R_B, X[n]);
@@ -306,8 +307,8 @@ int main (int argc, char *argv[]){
             T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
             T_e = Orbital_kinetic_en(R_A, R_B, c);
             E_eN = Electron_nuclei_en(R_A, R_B, c);
-            std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << E_ee << "    " << E_eN << endl;
-            X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << E_ee << "    " << E_eN << endl;
+            std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << E_ee << "    " << E_eN << "    " << check << endl;
+            X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << E_ee << "    " << E_eN << "    " << check << endl;
         }
 
         X_en_file.close();
@@ -390,12 +391,10 @@ int main (int argc, char *argv[]){
             X_en_file.open(X_en, ios :: out | ios :: trunc);
             
             /**** Generate random initial positions ****/
-            X[1] = 1.0 + 1.0*rand()/RAND_MAX;
+            X[1] = X[0];
             R_B.x = X[1];
 
-            /**** Generate random initial velocities ****/
-            v = -v_max + 2.0*v_max*rand()/RAND_MAX;
-            X[0] = X[1] - v*h_N; 
+             
 
             std::cout << X[1] << "  " << X[0] << endl;
 
@@ -788,7 +787,7 @@ int main (int argc, char *argv[]){
     /**** CPMD WITH DFT ****/
     if(string(argv[1]) == "CPMD_DFT"){
 
-        /**** Choose the number of steps (must be less than CP_iter) ****/
+        /**** Choose the number of steps (must be less than iter=2000) ****/
         int N_steps;
         std::cout << "Enter the number of CPMD_DFT steps: ";
         std::cin >> N_steps;
@@ -873,7 +872,7 @@ int main (int argc, char *argv[]){
             coeff_file.open(coeff, ios_base::app);
         }
 
-        std::cout << "X" << "      " << "Energy (H)" << endl;
+        std::cout << "X" << " || " << "Energy (H)" << " || " << "Nuclear kin. energy" << " || " << "Electronic kin. energy" << endl;
 
         for(n=1; n<=N_steps; n++){
 
@@ -925,7 +924,6 @@ int main (int argc, char *argv[]){
             /**** Update X (also R_B.x is updated) ****/
             dE0_dX = compute_dE0_dX(F, H, c, X[n]);
             X[n + 1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[n], X[n-1]);
-            std::cout << "  " << endl;
 
             /**** Print to X_en file and to screen ****/
             T_N = Nuclear_kinetic_en(X[n + 1], X[n]);

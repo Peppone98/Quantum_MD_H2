@@ -64,7 +64,7 @@ void Conj_grad(gsl_matrix *Hessian, gsl_vector *b, gsl_vector *Delta_c, double t
     double norm = 0., alpha = 0., beta = 0.;
     int iter = 0;
 
-    /**** Obtain the initial remainder r ****/
+    /**** Obtain the initial remainder r = HdC - b ****/
     gsl_vector *r = gsl_vector_alloc(2*N);
     gsl_blas_dgemv(CblasNoTrans, 1., Hessian, Delta_c, 0., r);
     gsl_vector_sub(r, b);
