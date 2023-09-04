@@ -29,7 +29,7 @@ const int iter = 2000; /* iterations used in BOMD or Conjugate Gradient */
 const double m = 2.0; /* fictitious mass for electronic problem */
 const double gamma_el= 1.0; /* electronic damping */
 const double M_N = 1836.5; /* nuclear mass */
-const double gamma_N = 15.0; /* nuclear damping */
+const double gamma_N = 0.0; /* nuclear damping */
 const double h = 0.1; /* electronic time scale */
 const double h_N = 43*h; /* nuclear time scale*/
 const int N = 4;
@@ -73,6 +73,7 @@ double Nuclear_kinetic_en(double X_new, double X_old);
 double Electron_electron_en(gsl_vector *c, gsl_matrix *F);
 double Electron_nuclei_en(R R_A, R R_B, gsl_vector *c);
 double One_body(gsl_vector *c, gsl_matrix *H);
+double Fictitious_kin_energy(gsl_vector *c, gsl_vector *c_old, gsl_matrix *S, gsl_matrix *dS_dX, double X, double X_old, R R_A, R R_B);
 
 
 /******** EVOLVE THE COEFFICIENTS IN TIME ********/

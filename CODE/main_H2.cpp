@@ -11,7 +11,7 @@ int main (int argc, char *argv[]){
 	R R_A, R_B;
     double Q[2*N][2*N][2*N][2*N];
     double X[iter];
-    double E_1s=0., lambda=0., E0 = 0., E_old = 0., dE0_dX = 0., T_N = 0., T_e = 0.0, E_ee = 0.0, E_eN = 0.0;
+    double E_1s=0., lambda=0., E0 = 0., E_old = 0., dE0_dX = 0., T_N = 0., T_e = 0.0, E_ee = 0.0, E_eN = 0.0, f_kin_en = 0.0;
 	gsl_matrix *S = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *S_auxiliary = gsl_matrix_alloc(2*N, 2*N);
 	gsl_matrix *H = gsl_matrix_alloc(2*N, 2*N);
@@ -23,6 +23,7 @@ int main (int argc, char *argv[]){
 	gsl_vector_set_all(c, 1.);
     gsl_matrix *V_xc = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *dVxc_dX = gsl_matrix_alloc(2*N, 2*N);
+    gsl_matrix *dS_dX = gsl_matrix_alloc(2*N, 2*N);
 
     /**** Initial nuclei positions ****/
     R_A.x = 0., R_A.y = 0., R_A.z = 0.;
@@ -392,13 +393,13 @@ int main (int argc, char *argv[]){
             
             /**** Generate random initial positions ****/
             X[1] = X[0];
-            R_B.x = X[1];
-
-             
+            R_B.x = X[1];            
 
             std::cout << X[1] << "  " << X[0] << endl;
 
             for(n=1; n<CP_iter-1; n++){
+                /**** Keep c_old updated ****/
+                gsl_vector_memcpy(c_old, c);
 
                 /**** Fill S, H and Q for electronic problem ****/
                 create_S(S, R_A, R_B);
@@ -427,7 +428,7 @@ int main (int argc, char *argv[]){
                 E0 = compute_E0(F, H, c) + 1./X[n];
 
                 /**** Fill S, H, Q and F for nuclear problem ****/
-                create_dS_dX(S, R_A, R_B);
+                create_dS_dX(dS_dX, R_A, R_B);
                 one_body_dH_dX(H, R_A, R_B, X[n]);
                 build_dQ_dX(Q, R_A, R_B, X[n]);
                 two_body_F(Q, c, F);
@@ -435,13 +436,16 @@ int main (int argc, char *argv[]){
 
                 /**** Update X (also R_B.x is updated) ****/
                 dE0_dX = compute_dE0_dX(F, H, c, X[n]);
-                X[n + 1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[n], X[n-1]);
+                X[n + 1] = evolve_X(c, dS_dX, &R_B, lambda, dE0_dX, X[n], X[n-1]);
+
+                /**** Compute fictitious kinetic energy ****/
+                f_kin_en = Fictitious_kin_energy(c, c_old, S, dS_dX, X[n + 1], X[n], R_A, R_B);
 
                 /**** Save relevant quantities ****/
                 T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
                 T_e = Orbital_kinetic_en(R_A, R_B, c);
-                std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << endl;
-                X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << endl;
+                std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << f_kin_en << "    " << E0 + T_N + f_kin_en << endl;
+                X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << f_kin_en << "    " << E0 + T_N + f_kin_en << endl;
             }
 
             X_en_file.close();
