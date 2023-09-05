@@ -43,30 +43,6 @@ double compute_E0(gsl_matrix *F, gsl_matrix *H, gsl_vector *c){
 }
 
 
-double Orbital_kinetic_en(R R_A, R R_B, gsl_vector *c){
-	double sum = 0.0, c_p = 0.0, c_q = 0.0;
-	int p, q;
-
-	for(p=0; p<N; p++){
-		c_p = gsl_vector_get(c, p);
-		for(q=0; q<N; q++){
-			c_q = gsl_vector_get(c, q);
-
-			/**** The sum is over all the matrix elements ****/
-			sum += laplacian(a[p], a[q], R_A, R_A);
-			sum += laplacian(a[p], a[q], R_A, R_B);
-			sum += laplacian(a[p], a[q], R_B, R_A);
-			sum += laplacian(a[p], a[q], R_B, R_B);
-			sum = c_p*c_q*sum;
-		}
-	}
-
-	/**** We have a factor 2 because we have two electrons ****/
-	/**** Also, remember that m_e = 1 in a.u. ****/
-	return sum;
-}
-
-
 double Nuclear_kinetic_en(double X_new, double X_old){
 	double v = (X_new - X_old)/h_N;
 
@@ -86,34 +62,23 @@ double Electron_electron_en(gsl_vector *c, gsl_matrix *F){
 }
 
 
-double Electron_nuclei_en(R R_A, R R_B, gsl_vector *c){
-	int p, q;
-	double c_p, c_q, sum = 0.0;
-
-	for(p=0; p<N; p++){
-		c_p = gsl_vector_get(c, p);
-		for(q=0; q<N; q++){
-			c_q = gsl_vector_get(c, q);
-
-			/**** The sum is over all the matrix elements ****/
-			sum += el_nucl(a[p], a[q], R_A, R_A, R_A);
-			sum += el_nucl(a[p], a[q], R_A, R_A, R_B);
-			sum += el_nucl(a[p], a[q], R_A, R_B, R_A);
-			sum += el_nucl(a[p], a[q], R_A, R_B, R_B);
-			sum = 2.0*c_p*c_q*sum;
-		}
-	}
-	/**** 2 electrons ****/
-	return 2.0*sum;
-}
-
-
 double One_body(gsl_vector *c, gsl_matrix *H){
 	double result = 0.0;
 	gsl_vector *tmp = gsl_vector_alloc(2*N);
 
     /**** c^T * H * c ****/
     gsl_blas_dgemv(CblasNoTrans, 1., H, c, 0., tmp);
+    gsl_blas_ddot(c, tmp, &result);
+    return 2.0*result;
+}
+
+
+double XC_energy(gsl_vector *c, gsl_matrix *V_xc){
+	double result = 0.0;
+	gsl_vector *tmp = gsl_vector_alloc(2*N);
+
+    /**** c^T * H * c ****/
+    gsl_blas_dgemv(CblasNoTrans, 1., V_xc, c, 0., tmp);
     gsl_blas_ddot(c, tmp, &result);
     return 2.0*result;
 }

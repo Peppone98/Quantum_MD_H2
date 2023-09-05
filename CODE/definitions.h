@@ -22,14 +22,14 @@ struct R {
 };
 
 #define FUNCTIONAL_X XC_LDA_X
-#define FUNCTIONAL_C XC_LDA_C_GL
+#define FUNCTIONAL_C XC_LDA_C_PZ
 
 const int CP_iter = 800; /* Car-Parrinello iterations */
 const int iter = 2000; /* iterations used in BOMD or Conjugate Gradient */
 const double m = 2.0; /* fictitious mass for electronic problem */
 const double gamma_el= 1.0; /* electronic damping */
 const double M_N = 1836.5; /* nuclear mass */
-const double gamma_N = 0.0; /* nuclear damping */
+const double gamma_N = 15.0; /* nuclear damping */
 const double h = 0.1; /* electronic time scale */
 const double h_N = 43*h; /* nuclear time scale*/
 const int N = 4;
@@ -68,11 +68,10 @@ void two_body_F(double Q[2*N][2*N][2*N][2*N], gsl_vector *c, gsl_matrix *F);
 /******** COMPUTE TOTAL ENERGY AND PRINT ORBITAL ****/
 double compute_E0(gsl_matrix *F, gsl_matrix *H, gsl_vector *c);
 void print_orbital(gsl_vector *c_new, R R_A, R R_B);
-double Orbital_kinetic_en(R R_A, R R_B, gsl_vector *c);
 double Nuclear_kinetic_en(double X_new, double X_old);
 double Electron_electron_en(gsl_vector *c, gsl_matrix *F);
-double Electron_nuclei_en(R R_A, R R_B, gsl_vector *c);
 double One_body(gsl_vector *c, gsl_matrix *H);
+double XC_energy(gsl_vector *c, gsl_matrix *V_xc);
 double Fictitious_kin_energy(gsl_vector *c, gsl_vector *c_old, gsl_matrix *S, gsl_matrix *dS_dX, double X, double X_old, R R_A, R R_B);
 
 

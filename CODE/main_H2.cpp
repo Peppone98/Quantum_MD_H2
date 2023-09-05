@@ -11,7 +11,7 @@ int main (int argc, char *argv[]){
 	R R_A, R_B;
     double Q[2*N][2*N][2*N][2*N];
     double X[iter];
-    double E_1s=0., lambda=0., E0 = 0., E_old = 0., dE0_dX = 0., T_N = 0., T_e = 0.0, E_ee = 0.0, E_eN = 0.0, f_kin_en = 0.0;
+    double E_1s=0., lambda=0., E0 = 0., E_old = 0., dE0_dX = 0., T_N = 0., E_ee = 0.0, f_kin_en = 0.0, E_one_body = 0.0, E_xc = 0.0;
 	gsl_matrix *S = gsl_matrix_alloc(2*N, 2*N);
     gsl_matrix *S_auxiliary = gsl_matrix_alloc(2*N, 2*N);
 	gsl_matrix *H = gsl_matrix_alloc(2*N, 2*N);
@@ -291,7 +291,7 @@ int main (int argc, char *argv[]){
             E_ee = Electron_electron_en(c, F);
             gsl_matrix_add(F, H);
             E0 = compute_E0(F, H, c) + 1./X[n];
-            double check = One_body(c, H);
+            E_one_body = One_body(c, H);
 
             /**** Fill H, Q and F for nuclear problem ****/
             one_body_dH_dX(H, R_A, R_B, X[n]);
@@ -306,10 +306,8 @@ int main (int argc, char *argv[]){
 
             /**** Print relevant quantities ****/
             T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
-            T_e = Orbital_kinetic_en(R_A, R_B, c);
-            E_eN = Electron_nuclei_en(R_A, R_B, c);
-            std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << E_ee << "    " << E_eN << "    " << check << endl;
-            X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << E_ee << "    " << E_eN << "    " << check << endl;
+            std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << endl;
+            X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << endl;
         }
 
         X_en_file.close();
@@ -321,6 +319,225 @@ int main (int argc, char *argv[]){
         std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
         std::cout << "The C coefficients have been written to " << coeff << endl;
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /**** CPMD WITH DFT ****/
+    if(string(argv[1]) == "BOMD_DFT"){
+
+        /**** Choose the number of steps (must be less than iter=2000) ****/
+        int N_steps;
+        std::cout << "Enter the number of BOMD_DFT steps: ";
+        std::cin >> N_steps;
+
+        /**** If a previous trajectory has been produced, then append the output ****/
+        string X_en = "MD_BO_DFT_X_energies.txt";
+        string coeff = "MD_BO_DFT_coeff.txt";
+        ifstream X_energies_file;
+        ifstream coefficients_file;
+        X_energies_file.open(X_en);
+        coefficients_file.open(coeff);
+        double read_coeff[2*N];
+        double last_X;
+
+        /**** Check if opening a file failed ****/ 
+        if (coefficients_file.fail() || X_energies_file.fail()) {
+            std::cout << "Coefficients file or the X_energies file NOT FOUND" << endl;
+            std::cout << "*********** Starting a NEW simulation ***********" << endl;
+        }else{
+            string line_coeff, line_X;
+
+            /**** Read the coefficient file until the last line ****/
+            while(getline(coefficients_file, line_coeff)){
+                for(int i=0; i<2*N; i++){
+                    coefficients_file >> read_coeff[i];
+                }
+            }
+
+            /**** Print the coefficients to screen ****/
+            std::cout << "****** Warning: starting from a given set of coefficients c ****" << endl;
+            std::cout << "Coefficients read from file: " << endl;
+            for(int i=0; i<2*N; i++){    
+                std::cout << read_coeff[i] << endl;
+            }
+            
+            /**** Save the read coefficients in the gsl_vector ****/
+            for(int i=0; i<2*N; i++){
+                gsl_vector_set(c, i, read_coeff[i]);
+            }
+
+            /**** To restart the c evolution on the run ****/
+            gsl_vector_memcpy(c_old, c);
+
+            /**** Save the lines as strings in contents_X ****/
+            vector<string> contents_X;
+            while(!X_energies_file.eof()){
+                getline(X_energies_file, line_X);
+                contents_X.push_back(line_X);
+            }
+
+            /**** Save the last and the second last lines ****/
+            int number_of_lines = contents_X.size();
+            std::cout << "Second last line: " << contents_X.at(number_of_lines-3) << endl;
+            std::cout << "Last line: " << contents_X.at(number_of_lines-2) << endl;
+            /**** For the user: leave an empty line at the end of the file ****/
+
+            /**** Create a string object with a stream ****/
+            stringstream s1(contents_X.at(number_of_lines - 3));
+            stringstream s2(contents_X.at(number_of_lines - 2));
+            string record_1, record_2;
+            s1 >> record_1;
+            s2 >> record_2;
+            X[0] = atof(record_1.c_str());
+            X[1] = atof(record_2.c_str());
+            R_B.x = X[1]; 
+
+            /**** Remove the unnecessary last line from the X_en file ****/
+            Remove_last_line(X_en);
+
+        }/**** End of the else statement ****/
+
+        /**** Create the files for storing the energies and the coefficients ****/
+        ofstream X_en_file;
+        ofstream coeff_file;
+
+        /**** If the X_en_file already exists, then append the output ****/
+        if(X_en_file.fail() || coeff_file.fail()){
+            X_en_file.open(X_en, ios :: out | ios :: trunc);
+            coeff_file.open(coeff, ios :: out | ios :: trunc);
+        }else{
+            X_en_file.open(X_en, ios_base::app);
+            coeff_file.open(coeff, ios_base::app);
+        }
+
+        /**** Start with little equilibration cycle with CPMD ****/
+        for(n=0; n<35; n++){
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
+        
+        /**** The first lambda comes from the CP equilibration ****/
+        double lambda_shake = lambda;
+
+        std::cout << "X" << " || " << "Electronic energy" << " || " << "Nuclear kin. energy" << " || " << "E_ee energy" << " || " << "One-body energy" << " || " << "E_xc" << endl;
+
+        for(n=1; n<=N_steps; n++){
+
+            /**** Fill S and V ****/
+            create_S(S, R_A, R_B);
+            gsl_matrix_memcpy(S_auxiliary, S);
+            diag_S(S_auxiliary, V);
+
+            /**** Fill H and Q for electronic problem ****/
+            one_body_H(H, R_A, R_B);
+            build_Q(Q, R_A, R_B);
+
+            string s = "V_xc";
+            /**** Evolve the c vector of coefficients ****/
+            E0 = 0.0, E_old = 1.0;
+            while(fabs(E0 - E_old) > 1E-7){
+
+                /**** Build Fock matrix with the added exchange part ****/
+                two_body_F(Q, c, F);
+                gsl_matrix_scale(F, 1. + a_x);
+                gsl_matrix_add(F, H);
+
+                /**** Adding the exchange and correlation ****/
+                string s = "V_xc";
+                Adaptive_Ex_Corr(V_xc, dVxc_dX, R_A, R_B, c, X[n], s);
+                gsl_matrix_add(F, V_xc);
+
+                /**** tmp_F is needed beacuse solve_FC_eSC destroys lower part of F ****/
+                gsl_matrix *tmp_F = gsl_matrix_alloc(2*N, 2*N);
+                gsl_matrix_memcpy(tmp_F, F);
+                E_1s = solve_FC_eSC(tmp_F, V, U);
+
+                /**** Compute the energy ****/
+                E_old = E0;
+                E0 = compute_E0(F, H, c) + 1./X[0];
+
+                /**** Get the c vector from eigenvector matrix U ****/
+                gsl_matrix_get_col(c, U, 0);
+                gsl_matrix_free(tmp_F);
+            }
+
+            /**** Print the coefficients to file ****/
+            for(int i=0; i<2*N; i++){
+                coeff_file << gsl_vector_get(c, i) <<  "    ";
+            }
+            coeff_file << endl;
+
+            /**** Compute the correct energy after the update of F ****/
+            two_body_F(Q, c, F);
+            gsl_matrix_scale(F, 1. + a_x);
+            gsl_matrix_add(F, H);
+
+            /**** Adding the exchange and correlation ****/
+            create_Ex_Corr(V_xc, R_A, R_B, c, X[n]);
+            gsl_matrix_add(F, V_xc);
+
+            /**** Computing el-el, one-body, XC energy & DFT ground state ****/
+            E_ee = Electron_electron_en(c, F);
+            E_one_body = One_body(c, H);
+            E_xc = XC_energy(c, V_xc);
+            E0 = compute_E0(F, H, c) + 1./X[n];
+
+            /**** Fill S, H, Q and F for nuclear problem ****/
+            create_dS_dX(S, R_A, R_B);
+            one_body_dH_dX(H, R_A, R_B, X[n]);
+            build_dQ_dX(Q, R_A, R_B, X[n]);
+            create_dVxc_dX(dVxc_dX, R_A, R_B, c, X[n]);
+            two_body_F(Q, c, F);
+            gsl_matrix_scale(F, 1. + a_x);
+            gsl_matrix_add(F, H);
+            gsl_matrix_add(F, dVxc_dX);
+
+            /**** Update X (also R_B.x is updated) ****/
+            dE0_dX = compute_dE0_dX(F, H, c, X[n]);
+            X[n + 1] = Get_X_shake(X[n], X[n - 1], c, R_A, R_B, dE0_dX, lambda_shake, 1E-3);
+            R_B.x = X[n + 1];
+
+            /**** Print to X_en file and to screen ****/
+            T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
+            std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << "    " << E_xc << endl;
+            X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << "    " << E_xc << endl;
+        }
+
+        /**** Print the X[n+1] to restart the simulation ****/
+        X_en_file << X[N_steps + 1] << endl;  
+
+        X_en_file.close();
+        coeff_file.close();
+
+        /**** Print to screen the record of the simulation ****/
+        std::cout << "Born-Oppenheimer Molecular Dynamics has been executed for " << N_steps << " steps" << endl;
+        std::cout << "  " << endl;
+        std::cout << "Parameters of the simulation: " << endl;
+        std::cout << "Nuclear step h_N: " << h_N << endl;
+        std::cout << "Nuclear mass: " << M_N << endl;
+        std::cout << "Nuclear damping: " << gamma_N << endl;
+        xc_func_type func;
+        xc_func_init(&func, FUNCTIONAL_C, XC_UNPOLARIZED);
+        std::cout << "XC functional employed: " << func.info->name << endl;
+        std::cout << "  " << endl;
+        std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
+        std::cout << "The C coefficients have been written to " << coeff << endl;
+    }
+
+
+
+
 
 
 
@@ -443,9 +660,8 @@ int main (int argc, char *argv[]){
 
                 /**** Save relevant quantities ****/
                 T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
-                T_e = Orbital_kinetic_en(R_A, R_B, c);
-                std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << f_kin_en << "    " << E0 + T_N + f_kin_en << endl;
-                X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << "    " << f_kin_en << "    " << E0 + T_N + f_kin_en << endl;
+                std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << f_kin_en << "    " << E0 + T_N + f_kin_en << endl;
+                X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << f_kin_en << "    " << E0 + T_N + f_kin_en << endl;
             }
 
             X_en_file.close();
@@ -472,7 +688,6 @@ int main (int argc, char *argv[]){
 
 
 
-    
 
 
 
@@ -480,110 +695,8 @@ int main (int argc, char *argv[]){
 
 
 
-    /**** CONJUGATE GRADIENT - NUCLEI MOTION WITH CP ****/
-    if(string(argv[1]) == "CG_CP"){
-
-        /**** Start with little equilibration cycle with CPMD ****/
-        for(n=0; n<35; n++){
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
-            lambda = update_c(F, S, c, c_old);
-        }
-        
-        /**** The first lambda_CP comes from the CP equilibration ****/
-        double lambda_CP = lambda;
-
-        /**** Threshold for conjugate gradient convergence ****/
-        double eps = 0.001;
-
-        /**** Open files to write the X, energies and coefficients ****/
-        string X_en = "CG_CP_X_energies.txt";
-        string coeff = "CG_CP_coeff.txt";
-        ofstream X_en_file;
-        ofstream coeff_file;
-	    X_en_file.open(X_en, ios :: out | ios :: trunc);
-        coeff_file.open(coeff, ios :: out | ios :: trunc);
-
-        /**** Create Hessian, b, and increment of C ****/
-        gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
-        gsl_vector *b = gsl_vector_alloc(2*N);
-        gsl_vector *Delta_c = gsl_vector_alloc(2*N);
-
-        for(n=1; n<CP_iter-1; n++){
-
-            /**** Print the coefficients to file ****/
-            for(int i=0; i<2*N; i++){
-                coeff_file << gsl_vector_get(c, i) <<  "    ";
-            }
-            coeff_file << endl;
-
-            /**** Fill the Hessian and b (minus the gradient of E) ****/
-            Get_Hessian_and_b(Hessian, b, Q, S, F, c);
-
-            /**** Apply the CG routine to get the increment Delta_c ****/
-            gsl_vector_set_all(Delta_c, 0.0);
-            Conj_grad(Hessian, b, Delta_c, eps);
-
-            /**** Copy c in c_old and then update c (adding Delta_c) ****/
-            gsl_vector_memcpy(c_old, c);
-            gsl_vector_add(c, Delta_c);
-
-            /**** Update the c (in CP fashion) ****/
-            lambda_CP = Get_lambda_CP(S, c, c_old, lambda_CP);
-            norm = Get_norm_C_cg(S, c);
-
-            /**** Compute the correct energy after the update of F ****/
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
-            E0 = compute_E0(F, H, c) + 1./X[n];
-
-            /**** Fill S, H, Q and F for nuclear problem ****/
-            create_dS_dX(S, R_A, R_B);
-            one_body_dH_dX(H, R_A, R_B, X[n]);
-            build_dQ_dX(Q, R_A, R_B, X[n]);
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
-
-            /**** Update X using the newly computed lambda_CP ****/
-            dE0_dX = compute_dE0_dX(F, H, c, X[n]);
-            X[n + 1] = evolve_X(c, S, &R_B, lambda_CP, dE0_dX, X[n], X[n-1]);
-            std::cout << "  " << endl;
-            X_en_file << X[n] << "    " << E0 << endl;
-            std::cout << "lambda_CP: " << lambda_CP << endl;
-            std::cout << "normalisation: " << norm << endl;
-
-            /**** Prepare the S, H, Q and F for new electronic problem ****/
-            create_S(S, R_A, R_B);
-            one_body_H(H, R_A, R_B);
-            build_Q(Q, R_A, R_B);
-            two_body_F(Q, c, F);
-            gsl_matrix_add(F, H);
-        }
-
-        X_en_file.close();
-        coeff_file.close();
-
-        std::cout << "Car-Parrinello with conjugate gradient has been executed for " << CP_iter << " steps" << endl;
-        std::cout << "  " << endl;
-        std::cout << "Parameters of the simulation: " << endl;
-        std::cout << "Nuclear step h_N: " << h_N << endl;
-        std::cout << "Nuclear mass: " << M_N << endl;
-        std::cout << "Nuclear damping: " << gamma_N << endl;
-        std::cout << "  " << endl;
-        std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
-        std::cout << "The C coefficients have been written to " << coeff << endl;
-    }
-
-
-
-
-
-
-
-
-
-    /**** CONJUGATE GRADIENT - NUCLEI MOTION WITH SHAKE ****/
-    if(string(argv[1]) == "CG_shake"){
+    /**** CONJUGATE GRADIENT MOLECULAR DYNAMICS ****/
+    if(string(argv[1]) == "CGMD_HF"){
 
         /**** Start with little equilibration cycle with CPMD ****/
         for(n=0; n<35; n++){
@@ -599,8 +712,8 @@ int main (int argc, char *argv[]){
         double eps = 0.001;
 
         /**** Open files to write the X, energies and coefficients ****/
-        string X_en = "outputs/CG_shake_X_energies.txt";
-        string coeff = "outputs/CG_shake_coeff.txt";
+        string X_en = "MD_CG_HF_X_energies.txt";
+        string coeff = "MD_CG_HF_coeff.txt";
         ofstream X_en_file;
         ofstream coeff_file;
 	    X_en_file.open(X_en, ios :: out | ios :: trunc);
@@ -655,16 +768,15 @@ int main (int argc, char *argv[]){
             /**** Exclude first points (little equilibration is needed) ****/
             if(n > 30){
                 T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
-                T_e = Orbital_kinetic_en(R_A, R_B, c);
-                std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << endl;
-                X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << endl;
+                std::cout << X[n] << "    " << E0 << "    " << T_N << endl;
+                X_en_file << X[n] << "    " << E0 << "    " << T_N << endl;
             }
         }
 
         X_en_file.close();
         coeff_file.close();
 
-        std::cout << "Conjugate gradient minimisation has been executed for " << iter << " steps" << endl;
+        std::cout << "Conjugate Gradient Molecular Dynamics has been executed for " << iter << " steps" << endl;
         std::cout << "  " << endl;
         std::cout << "Parameters of the simulation: " << endl;
         std::cout << "Nuclear step h_N: " << h_N << endl;
@@ -674,6 +786,212 @@ int main (int argc, char *argv[]){
         std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
         std::cout << "The C coefficients have been written to " << coeff << endl;
     }
+
+
+
+
+
+
+
+
+
+    /**** CPMD WITH DFT ****/
+    if(string(argv[1]) == "CGMD_DFT"){
+
+        /**** Choose the number of steps (must be less than iter=2000) ****/
+        int N_steps;
+        std::cout << "Enter the number of CGMD_DFT steps: ";
+        std::cin >> N_steps;
+
+        /**** If a previous trajectory has been produced, then append the output ****/
+        string X_en = "MD_CG_DFT_X_energies.txt";
+        string coeff = "MD_CG_DFT_coeff.txt";
+        ifstream X_energies_file;
+        ifstream coefficients_file;
+        X_energies_file.open(X_en);
+        coefficients_file.open(coeff);
+        double read_coeff[2*N];
+        double last_X;
+
+        /**** Check if opening a file failed ****/ 
+        if (coefficients_file.fail() || X_energies_file.fail()) {
+            std::cout << "Coefficients file or the X_energies file NOT FOUND" << endl;
+            std::cout << "*********** Starting a NEW simulation ***********" << endl;
+        }else{
+            string line_coeff, line_X;
+
+            /**** Read the coefficient file until the last line ****/
+            while(getline(coefficients_file, line_coeff)){
+                for(int i=0; i<2*N; i++){
+                    coefficients_file >> read_coeff[i];
+                }
+            }
+
+            /**** Print the coefficients to screen ****/
+            std::cout << "****** Warning: starting from a given set of coefficients c ****" << endl;
+            std::cout << "Coefficients read from file: " << endl;
+            for(int i=0; i<2*N; i++){    
+                std::cout << read_coeff[i] << endl;
+            }
+            
+            /**** Save the read coefficients in the gsl_vector ****/
+            for(int i=0; i<2*N; i++){
+                gsl_vector_set(c, i, read_coeff[i]);
+            }
+
+            /**** To restart the c evolution on the run ****/
+            gsl_vector_memcpy(c_old, c);
+
+            /**** Save the lines as strings in contents_X ****/
+            vector<string> contents_X;
+            while(!X_energies_file.eof()){
+                getline(X_energies_file, line_X);
+                contents_X.push_back(line_X);
+            }
+
+            /**** Save the last and the second last lines ****/
+            int number_of_lines = contents_X.size();
+            std::cout << "Second last line: " << contents_X.at(number_of_lines-3) << endl;
+            std::cout << "Last line: " << contents_X.at(number_of_lines-2) << endl;
+            /**** For the user: leave an empty line at the end of the file ****/
+
+            /**** Create a string object with a stream ****/
+            stringstream s1(contents_X.at(number_of_lines - 3));
+            stringstream s2(contents_X.at(number_of_lines - 2));
+            string record_1, record_2;
+            s1 >> record_1;
+            s2 >> record_2;
+            X[0] = atof(record_1.c_str());
+            X[1] = atof(record_2.c_str());
+            R_B.x = X[1]; 
+
+            /**** Remove the unnecessary last line from the X_en file ****/
+            Remove_last_line(X_en);
+
+        }/**** End of the else statement ****/
+
+        /**** Create the files for storing the energies and the coefficients ****/
+        ofstream X_en_file;
+        ofstream coeff_file;
+
+        /**** If the X_en_file already exists, then append the output ****/
+        if(X_en_file.fail() || coeff_file.fail()){
+            X_en_file.open(X_en, ios :: out | ios :: trunc);
+            coeff_file.open(coeff, ios :: out | ios :: trunc);
+        }else{
+            X_en_file.open(X_en, ios_base::app);
+            coeff_file.open(coeff, ios_base::app);
+        }
+
+        /**** Start with little equilibration cycle with CPMD ****/
+        for(n=0; n<35; n++){
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
+        
+        /**** The first lambda comes from the CP equilibration ****/
+        double lambda_shake = lambda;
+
+        /**** Create Hessian, b, and increment of C ****/
+        gsl_matrix *Hessian = gsl_matrix_alloc(2*N, 2*N);
+        gsl_vector *b = gsl_vector_alloc(2*N);
+        gsl_vector *Delta_c = gsl_vector_alloc(2*N);
+
+        std::cout << "X" << " || " << "Electronic energy" << " || " << "Nuclear kin. energy" << " || " << "E_ee energy" << " || " << "One-body energy" << " || " << "E_xc" << endl;
+
+        for(n=1; n<=N_steps; n++){
+
+            /**** Fill S, H, Q and F for electronic problem ****/
+            create_S(S, R_A, R_B);
+            one_body_H(H, R_A, R_B);
+            build_Q(Q, R_A, R_B);
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+
+            /**** Add the XC contribution ****/
+            string s = "V_xc";
+            Adaptive_Ex_Corr(V_xc, dVxc_dX, R_A, R_B, c, X[n], s);
+            gsl_matrix_add(F, V_xc);
+            
+            /**** Fill the Hessian and b (minus the gradient of E) ****/
+            Get_Hessian_and_b(Hessian, b, Q, S, F, c);
+
+            /**** Apply the CG routine to get the increment Delta_c ****/
+            gsl_vector_set_all(Delta_c, 0.0);
+            Conj_grad(Hessian, b, Delta_c, 0.001);
+
+            /**** Update c (adding Delta_c) ****/
+            gsl_vector_add(c, Delta_c);
+
+            /**** Update F and compute the correct energy after the update of c ****/
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            E0 = compute_E0(F, H, c) + 1./X[n];
+
+            /**** Print the coefficients to file ****/
+            for(int i=0; i<2*N; i++){
+                coeff_file << gsl_vector_get(c, i) <<  "    ";
+            }
+            coeff_file << endl;
+
+            /**** Compute the correct energy after the update of F ****/
+            two_body_F(Q, c, F);
+            gsl_matrix_scale(F, 1. + a_x);
+            gsl_matrix_add(F, H);
+
+            /**** Adding the exchange and correlation ****/
+            create_Ex_Corr(V_xc, R_A, R_B, c, X[n]);
+            gsl_matrix_add(F, V_xc);
+
+            /**** Computing el-el, one-body, XC energy & DFT ground state ****/
+            E_ee = Electron_electron_en(c, F);
+            E_one_body = One_body(c, H);
+            E_xc = XC_energy(c, V_xc);
+            E0 = compute_E0(F, H, c) + 1./X[n];
+
+            /**** Fill S, H, Q and F for nuclear problem ****/
+            create_dS_dX(S, R_A, R_B);
+            one_body_dH_dX(H, R_A, R_B, X[n]);
+            build_dQ_dX(Q, R_A, R_B, X[n]);
+            create_dVxc_dX(dVxc_dX, R_A, R_B, c, X[n]);
+            two_body_F(Q, c, F);
+            gsl_matrix_scale(F, 1. + a_x);
+            gsl_matrix_add(F, H);
+            gsl_matrix_add(F, dVxc_dX);
+
+            /**** Update X (also R_B.x is updated) ****/
+            dE0_dX = compute_dE0_dX(F, H, c, X[n]);
+            X[n + 1] = Get_X_shake(X[n], X[n - 1], c, R_A, R_B, dE0_dX, lambda_shake, 1E-3);
+            R_B.x = X[n + 1];
+
+            /**** Print to X_en file and to screen ****/
+            T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
+            std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << "    " << E_xc << endl;
+            X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << "    " << E_xc << endl;
+        }
+
+        /**** Print the X[n+1] to restart the simulation ****/
+        X_en_file << X[N_steps + 1] << endl;  
+
+        X_en_file.close();
+        coeff_file.close();
+
+        /**** Print to screen the record of the simulation ****/
+        std::cout << "Conjugate Gradient Molecular Dynamics has been executed for " << N_steps << " steps" << endl;
+        std::cout << "  " << endl;
+        std::cout << "Parameters of the simulation: " << endl;
+        std::cout << "Nuclear step h_N: " << h_N << endl;
+        std::cout << "Nuclear mass: " << M_N << endl;
+        std::cout << "Nuclear damping: " << gamma_N << endl;
+        xc_func_type func;
+        xc_func_init(&func, FUNCTIONAL_C, XC_UNPOLARIZED);
+        std::cout << "XC functional employed: " << func.info->name << endl;
+        std::cout << "  " << endl;
+        std::cout << "The X coordinate and the energies have been written to " << X_en << endl;
+        std::cout << "The C coefficients have been written to " << coeff << endl;
+    }
+
 
 
 
@@ -931,9 +1249,8 @@ int main (int argc, char *argv[]){
 
             /**** Print to X_en file and to screen ****/
             T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
-            T_e = Orbital_kinetic_en(R_A, R_B, c);
-            std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << endl;
-            X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << T_e << endl;
+            std::cout << X[n] << "    " << E0 << "    " << T_N << endl;
+            X_en_file << X[n] << "    " << E0 << "    " << T_N << endl;
         }
 
         /**** Print the X[n+1] to restart the simulation ****/

@@ -13,6 +13,7 @@ void Get_Hessian_and_b(gsl_matrix *Hessian, gsl_vector *b, double Q[2*N][2*N][2*
     /**** Build the Hessian ****/
     int p, q, t, s;
     double val = 0., c1, c2;
+    
     /**** Fill the matrix using the C vectors and the tensor Q ****/
     for(p=0; p<2*N; p++){
         for(q=0; q<2*N; q++){
