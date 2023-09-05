@@ -240,12 +240,14 @@ int main (int argc, char *argv[]){
         std::cout << lambda_shake << endl;
 
         /**** Create the files for storing the energies and the coefficients ****/
-        string X_en = "outputs/MD_BO_X_energies.txt";
-        string coeff = "outputs/MD_BO_coeff.txt";
+        string X_en = "MD_BO_HF_X_energies.txt";
+        string coeff = "MD_BO_HF_coeff.txt";
         ofstream X_en_file;
         ofstream coeff_file;
         X_en_file.open(X_en, ios :: out | ios :: trunc);
         coeff_file.open(coeff, ios :: out | ios :: trunc);
+
+        std::cout << "X" << " || " << "Electronic energy" << " || " << "Nuclear kin. energy" << " || " << "E_ee energy" << " || " << "One-body energy" << endl;
 
         for(n=1; n<iter - 1; n++){
 
@@ -288,10 +290,11 @@ int main (int argc, char *argv[]){
 
             /**** Compute the correct energy after the update of F ****/
             two_body_F(Q, c, F);
-            E_ee = Electron_electron_en(c, F);
             gsl_matrix_add(F, H);
-            E0 = compute_E0(F, H, c) + 1./X[n];
+            E_ee = Electron_electron_en(c, F);
             E_one_body = One_body(c, H);
+            E0 = compute_E0(F, H, c) + 1./X[n];
+            
 
             /**** Fill H, Q and F for nuclear problem ****/
             one_body_dH_dX(H, R_A, R_B, X[n]);
@@ -598,6 +601,8 @@ int main (int argc, char *argv[]){
         ofstream coeff_file;
         coeff_file.open(coeff, ios :: out | ios :: trunc);
 
+        std::cout << "X" << " || " << "Electronic energy" << " || " << "Nuclear kin. energy" << " || " << "E_ee energy" << " || " << "One-body energy" << " || " << "Fictitious kinetic energy" << endl;
+
         /**** Seed for random positions ****/
         srand((unsigned) time(NULL));
 
@@ -642,6 +647,8 @@ int main (int argc, char *argv[]){
                 /**** Compute the correct energy after the update of F ****/
                 two_body_F(Q, c, F);
                 gsl_matrix_add(F, H);
+                E_ee = Electron_electron_en(c, F);
+                E_one_body = One_body(c, H);
                 E0 = compute_E0(F, H, c) + 1./X[n];
 
                 /**** Fill S, H, Q and F for nuclear problem ****/
@@ -660,8 +667,8 @@ int main (int argc, char *argv[]){
 
                 /**** Save relevant quantities ****/
                 T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
-                std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << f_kin_en << "    " << E0 + T_N + f_kin_en << endl;
-                X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << f_kin_en << "    " << E0 + T_N + f_kin_en << endl;
+                std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << "    " << f_kin_en << endl;
+                X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << "    " << f_kin_en << endl;
             }
 
             X_en_file.close();
@@ -724,6 +731,8 @@ int main (int argc, char *argv[]){
         gsl_vector *b = gsl_vector_alloc(2*N);
         gsl_vector *Delta_c = gsl_vector_alloc(2*N);
 
+        std::cout << "X" << " || " << "Electronic energy" << " || " << "Nuclear kin. energy" << " || " << "E_ee energy" << " || " << "One-body energy" << endl;
+
         for(n=1; n<iter; n++){
 
             /**** Prepare the S, H, Q and F for new electronic problem ****/
@@ -746,6 +755,8 @@ int main (int argc, char *argv[]){
             /**** Update F and compute the correct energy after the update of c ****/
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
+            E_ee = Electron_electron_en(c, F);
+            E_one_body = One_body(c, H);
             E0 = compute_E0(F, H, c) + 1./X[n];
 
             /**** Print the coefficients to file ****/
@@ -768,8 +779,8 @@ int main (int argc, char *argv[]){
             /**** Exclude first points (little equilibration is needed) ****/
             if(n > 30){
                 T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
-                std::cout << X[n] << "    " << E0 << "    " << T_N << endl;
-                X_en_file << X[n] << "    " << E0 << "    " << T_N << endl;
+                std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << endl;
+                X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << endl;
             }
         }
 
@@ -1002,49 +1013,67 @@ int main (int argc, char *argv[]){
 
 
     /**** CG AND CP SUPERPOSITION ****/
-    if(string(argv[1]) == "CG_CP_superposition"){
+    if(string(argv[1]) == "Scalar_product"){
         int i, j;
+        string set1, set2;
+
+        std::cout << "Select two sets of coefficients between CP, BO and CG" << endl;
+        std::cout << "First set: ";
+        std::cin >> set1;
+        std::cout << "Second set: ";
+        std::cin >> set2;
+
+        /**** Name of the output file ****/
         ofstream scal_prod_file;
-        scal_prod_file.open("scal_prod.txt");
+        scal_prod_file.open("scal_prod_" + set1 + "_" + set2 + ".txt");
 
         /**** Open the file stream ****/ 
-        string CG = "CG_CP_coeff.txt";
-        string MD = "MD_CP_coeff.txt";
-        ifstream CG_file;
-        ifstream CP_file;
-        CG_file.open(CG);
-        CP_file.open(MD);
+        string SET1 = "MD_" + set1 + "_HF_coeff.txt";
+        string SET2 = "MD_" + set2 + "_HF_coeff.txt";
+        string X_EN = "MD_" + set1 + "_HF_X_energies.txt";
+
+        ifstream SET1_file;
+        ifstream SET2_file;
+        ifstream X_EN_file;
+        SET1_file.open(SET1);
+        SET2_file.open(SET2); 
+        X_EN_file.open(X_EN);   
 
         /**** Check if opening a file failed ****/ 
-        if (CG_file.fail() || CP_file.fail()) {
+        if (SET1_file.fail() || SET2_file.fail() || X_EN_file.fail()) {
             std::cout << "Error opening the coefficients file" << endl;
             exit(1);
         }else{
-            double c_CG[2*N], c_CP[2*N];
-            double scal_prod = 0.;
+            double c_SET1[2*N], c_SET2[2*N], X_from_file;
+            double scal_prod = 0.0;
             string line;
 
             /**** Read the lines of the two files ****/
-            while(getline(CG_file, line)){
+            while(getline(SET1_file, line)){
                 for(i=0; i<2*N; i++){
-                    CG_file >> c_CG[i];
-                    CP_file >> c_CP[i];
+                    SET1_file >> c_SET1[i];
+                    SET2_file >> c_SET2[i];
                 }
 
+                /**** Get the distance X from file and compute the S matrix ****/
+                X_EN_file >> X_from_file;
+                R_B.x = X_from_file;
+                create_S(S, R_A, R_B);
+
                 /**** Compute the scalar product using S ****/
-                scal_prod = 0.;
+                scal_prod = 0.0;
                 for(i=0; i<2*N; i++){
                     for(j=0; j<2*N; j++){
-                        scal_prod += gsl_matrix_get(S, i, j)*c_CP[i]*c_CG[j];
+                        scal_prod += gsl_matrix_get(S, i, j)*c_SET1[i]*c_SET1[j];
                     }
                 }
-                scal_prod_file << scal_prod << endl;
+                scal_prod_file << fabs(scal_prod) << endl;
             }
-            std::cout << "Coefficients files " << MD << " and " << CG << " successfully read" << endl;
+            std::cout << "Coefficients files " << SET1 << " and " << SET2 << " successfully read" << endl;
             std::cout << "File scal_prod.txt successfully written" << endl;
         }
-        CG_file.close();
-        CP_file.close();
+        SET1_file.close();
+        SET2_file.close();
         scal_prod_file.close();
     }
     
@@ -1194,7 +1223,7 @@ int main (int argc, char *argv[]){
             coeff_file.open(coeff, ios_base::app);
         }
 
-        std::cout << "X" << " || " << "Energy (H)" << " || " << "Nuclear kin. energy" << " || " << "Electronic kin. energy" << endl;
+        std::cout << "X" << " || " << "Electronic energy" << " || " << "Nuclear kin. energy" << " || " << "E_ee energy" << " || " << "One-body energy" << " || " << "E_xc" << " || " << "Fic. kin. energy" << endl;
 
         for(n=1; n<=N_steps; n++){
 
@@ -1231,10 +1260,12 @@ int main (int argc, char *argv[]){
             /**** Adding the exchange and correlation ****/
             create_Ex_Corr(V_xc, R_A, R_B, c, X[n]);
             gsl_matrix_add(F, V_xc);
+            E_ee = Electron_electron_en(c, F);
+            E_one_body = One_body(c, H);
             E0 = compute_E0(F, H, c) + 1./X[n];
 
             /**** Fill S, H, Q and F for nuclear problem ****/
-            create_dS_dX(S, R_A, R_B);
+            create_dS_dX(dS_dX, R_A, R_B);
             one_body_dH_dX(H, R_A, R_B, X[n]);
             build_dQ_dX(Q, R_A, R_B, X[n]);
             create_dVxc_dX(dVxc_dX, R_A, R_B, c, X[n]);
@@ -1247,10 +1278,13 @@ int main (int argc, char *argv[]){
             dE0_dX = compute_dE0_dX(F, H, c, X[n]);
             X[n + 1] = evolve_X(c, S, &R_B, lambda, dE0_dX, X[n], X[n-1]);
 
+            /**** Compute fictitious kinetic energy ****/
+            f_kin_en = Fictitious_kin_energy(c, c_old, S, dS_dX, X[n + 1], X[n], R_A, R_B);
+
             /**** Print to X_en file and to screen ****/
             T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
-            std::cout << X[n] << "    " << E0 << "    " << T_N << endl;
-            X_en_file << X[n] << "    " << E0 << "    " << T_N << endl;
+            std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << "    " << E_xc << "    " << f_kin_en << endl;
+            X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << "    " << E_xc << "    " << f_kin_en << endl;
         }
 
         /**** Print the X[n+1] to restart the simulation ****/
