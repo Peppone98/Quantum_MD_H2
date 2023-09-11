@@ -24,8 +24,7 @@ struct R {
 #define FUNCTIONAL_X XC_LDA_X
 #define FUNCTIONAL_C XC_LDA_C_PZ
 
-const int CP_iter = 800; /* Car-Parrinello iterations */
-const int iter = 2000; /* iterations used in BOMD or Conjugate Gradient */
+const int iter = 800; /* iterations used in BOMD or Conjugate Gradient */
 const double m = 2.0; /* fictitious mass for electronic problem */
 const double gamma_el= 1.0; /* electronic damping */
 const double M_N = 1836.5; /* nuclear mass */
@@ -102,7 +101,7 @@ void build_dQ_dX(double Q[2*N][2*N][2*N][2*N], R R_A, R R_B, double X);
 
 
 /********** EVOLVE X IN TIME ********/
-double evolve_X(gsl_vector *c, gsl_matrix *S, R *R_B, double lambda, double dE0_dX, double X, double X_old);
+double evolve_X(gsl_vector *c, gsl_matrix *S, R *R_B, double lambda, double dE0_dX, double X, double X_old, string s);
 double compute_dE0_dX(gsl_matrix *F, gsl_matrix *H, gsl_vector *c, double X);
 
 
@@ -113,7 +112,6 @@ void Conj_grad(gsl_matrix *Hessian, gsl_vector *b, gsl_vector *Delta_c, double t
 double Get_alpha(gsl_matrix *Hessian, gsl_vector *r, gsl_vector *d);
 double Get_beta(double norm, gsl_vector *r);
 double Get_norm_C_cg(gsl_matrix *S, gsl_vector *c);
-double Get_lambda_CP(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lambda_old);
 
 
 /********** EXCHANGE CORRELATION PART ***********/
@@ -148,11 +146,5 @@ void Adaptive_Ex_Corr(gsl_matrix *V_xc, gsl_matrix *dVxc_dX, R R_A, R R_B, gsl_v
 
 /********* FILE HANDLINGS *********************/
 void Remove_last_line(string filename);
-
-
-/********** SHAKE IMPLEMENTATION ***************/
-double dsigma_dX(gsl_vector *c, R R_A, R R_B);
-double sigma(gsl_vector *c, R R_A, R R_B);
-double Get_X_shake(double X, double X_old, gsl_vector *c, R R_A, R R_B, double dE0_dX, double lambda_guess, double eps);
 
 #endif

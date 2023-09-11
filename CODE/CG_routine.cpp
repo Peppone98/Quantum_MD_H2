@@ -133,28 +133,5 @@ double Get_norm_C_cg(gsl_matrix *S, gsl_vector *c){
 
 
 
-double Get_lambda_CP(gsl_matrix *S, gsl_vector *c, gsl_vector *c_old, double lambda_old){
-    /**** lambda_old is the lambda_CP of the previous iteration ****/
-    double lambda=0., A=0., B=0., C=0.;
-
-    /**** Add to c the part with lambda_old ****/
-    gsl_vector *tmp = gsl_vector_alloc(2*N);
-    gsl_blas_dgemv(CblasNoTrans, h*h*lambda_old, S, c_old, 0., tmp);
-    gsl_vector_memcpy(c_old, c);
-    gsl_vector_add(c, tmp);
-    gsl_vector_free(tmp);
-    
-    /**** Find lambda ****/
-    A = get_A(c_old, S);
-    B = get_B(c, c_old, S);
-    C = get_C(c, S);
-    lambda = lowest_positive_root(A, B, C);
-
-    /**** Now adjust c ****/
-    complete_evolution(S, c, c_old, lambda);
-
-    return lambda;
-}
-
 
 
