@@ -51,13 +51,13 @@ int main (int argc, char *argv[]){
     /**** SC_Hartree_Fock ****/
     /**** SC_DFT ****/
     /**** BOMD_HF ****/
-    /**** Evolve_coefficients ****/
+    /**** BOMD_DFT ****/
     /**** CPMD_HF ****/
-    /**** CG_min ****/
-    /**** CG_CP ****/
-    /**** CG_shake ****/
-    /**** CG_CP_superposition ****/
     /**** CPMD_DFT ****/
+    /**** CGMD_HF ****/
+    /**** CGMD_DFT ****/
+    /**** EX_CORR (prints the V_xc integrands) ****/ 
+    /**** CPMD_HF_TRAJECTORIES (computes multiple trajectories from random initial conditions) ****/
 
 
 
@@ -1295,7 +1295,6 @@ int main (int argc, char *argv[]){
 
     /**** EXTRA : CAR PARRINELLO MULTIPLE TRAJECTORIES ****/
     if(string(argv[1]) == "CPMD_HF_TRAJECTORIES"){
-        double v = 0.0, v_max = 0.03;
 
         /**** Choose the number of trajectories to generate ****/
         int N_traj;
@@ -1325,7 +1324,7 @@ int main (int argc, char *argv[]){
             
             /**** Generate random initial positions ****/
             X[0] = 1.0 + 1.0*rand()/RAND_MAX;
-            X[1] = 1.0 + 1.0*rand()/RAND_MAX;
+            X[1] = X[0] + 0.05*rand()/RAND_MAX;
             R_B.x = X[1];            
 
             for(n=1; n<iter-1; n++){
