@@ -111,7 +111,6 @@ double Get_lambda_CG(gsl_matrix *F, gsl_vector *c);
 void Conj_grad(gsl_matrix *Hessian, gsl_vector *b, gsl_vector *Delta_c, double tol);
 double Get_alpha(gsl_matrix *Hessian, gsl_vector *r, gsl_vector *d);
 double Get_beta(double norm, gsl_vector *r);
-double Get_norm_C_cg(gsl_matrix *S, gsl_vector *c);
 
 
 /********** EXCHANGE CORRELATION PART ***********/
@@ -133,6 +132,8 @@ double Simpson_z_dX(double alpha, double beta, R R_A, R R_B, gsl_vector *c, doub
 void Print_density_derivative(gsl_vector *c, double X);
 void Print_integrand_dX(int p, int q, R R_A, R R_B, gsl_vector *c, double X);
 void create_dVxc_dX(gsl_matrix *dVxc_dX, R R_A, R R_B, gsl_vector *c, double X);
+double dn_dz(double rho, double z, gsl_vector *c, R R_A, R R_B, double X);
+void Print_density_dz(gsl_vector *c, double X, R R_A, R R_B);
 
 
 /********* ADAPTIVE INTEGRATION PART ***********/

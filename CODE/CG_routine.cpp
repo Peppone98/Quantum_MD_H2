@@ -122,15 +122,6 @@ double Get_beta(double norm, gsl_vector *r){
 }
 
 
-/**** This does not modify the c vector ****/
-double Get_norm_C_cg(gsl_matrix *S, gsl_vector *c){
-    double norm;
-    gsl_vector *tmp = gsl_vector_alloc(2*N);
-    gsl_blas_dgemv(CblasNoTrans, 1., S, c, 0., tmp);
-    gsl_blas_ddot(c, tmp, &norm);
-    return norm;
-}
-
 
 
 

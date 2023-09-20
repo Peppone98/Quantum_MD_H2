@@ -177,6 +177,7 @@ void Print_density(gsl_vector *c, double X){
     }
 
     myfile.close();
+    std::cout << "Density written successfully in a txt file" << endl;
 }
 
 
@@ -202,7 +203,7 @@ void Print_integrand(int p, int q, R R_A, R R_B, gsl_vector *c, double X){
     double z_b = 2.5 + 1/m;
     double dz = (z_b - z_a)/N_mesh;
 
-    for(i=0; i<N_mesh + 10; i++){
+    for(i=0; i<N_mesh; i++){
         rho = i*drho;
         for(j=0; j<N_mesh; j++){
             z = z_a + j*dz;

@@ -11,7 +11,7 @@ double density_derivative(double rho, double z, gsl_vector *c, double X){
     int p, q;
     double c_p, c_q, K, exp_factor_p, exp_factor_q;
 
-    /**** Return the value of dn/dX, which is needed in the nuclear equations of CPMD ****/
+    /**** Return the value of dn/dX, which is needed in the nuclear equations ****/
     for(p=0; p<N; p++){
         for(q=0; q<N; q++){
             c_p = gsl_vector_get(c, p);
@@ -192,15 +192,15 @@ void Print_density_derivative(gsl_vector *c, double X){
     double z, rho;
 
     /**** Define the mesh for rho ****/
-    double rho_a = 0.0, rho_b = 2.0;
+    double rho_a = -1.7, rho_b = 1.7;
     double drho = (rho_b - rho_a)/N_mesh;
 
     /**** Define the mesh for z ****/
-    double z_a = -2.0, z_b = 3.0;
+    double z_a = -2.0, z_b = 3.4;
     double dz = (z_b - z_a)/N_mesh;
 
     for(i=0; i<N_mesh; i++){
-        rho = i*drho;
+        rho = rho_a + i*drho;
         for(j=0; j<N_mesh; j++){
             z = z_a + j*dz;
             myfile << density_derivative(rho, z, c, X) << "       ";
@@ -245,4 +245,55 @@ void Print_integrand_dX(int p, int q, R R_A, R R_B, gsl_vector *c, double X){
     }
 
     myfile.close();
+}
+
+
+double dn_dz(double rho, double z, gsl_vector *c, R R_A, R R_B, double X){
+    double dn_dz = 0, sum = 0.0;
+    int p, q;
+    double c_p, c_q;
+
+    /**** Return the value of dn/dX, which is needed in the nuclear equations ****/
+    for(p=0; p<N; p++){
+        for(q=0; q<N; q++){
+            c_p = gsl_vector_get(c, p);
+            c_q = gsl_vector_get(c, q);
+            sum = K(a[p], a[q], R_A, R_A)*z*exp(-(a[p] + a[q])*(rho*rho + z*z));
+            sum += K(a[p], a[q], R_A, R_B)*(z - a[p]*X/(a[p] + a[q]))*exp(-(a[p] + a[q])*(rho*rho + (z - a[p]*X/(a[p] + a[q]))*(z - a[p]*X/(a[p] + a[q]))));
+            sum += K(a[p], a[q], R_B, R_A)*(z - a[q]*X/(a[p] + a[q]))*exp(-(a[p] + a[q])*(rho*rho + (z - a[q]*X/(a[p] + a[q]))*(z - a[q]*X/(a[p] + a[q]))));
+            sum += K(a[p], a[q], R_B, R_B)*(z - X)*exp(-(a[p] + a[q])*(rho*rho + (z - X)*(z - X)));
+            dn_dz += c_p*c_q*2.0*(a[p] + a[q])*sum;
+        }
+    }
+
+    return dn_dz;
+}
+
+
+void Print_density_dz(gsl_vector *c, double X, R R_A, R R_B){
+    ofstream myfile;
+	myfile.open("Density_dz.txt", ios :: out | ios :: trunc);
+
+    int i, j, N_mesh = 100;
+    double z, rho;
+
+    /**** Define the mesh for rho ****/
+    double rho_a = -1.7, rho_b = 1.7;
+    double drho = (rho_b - rho_a)/N_mesh;
+
+    /**** Define the mesh for z ****/
+    double z_a = -2.0, z_b = 3.4;
+    double dz = (z_b - z_a)/N_mesh;
+
+    for(i=0; i<N_mesh; i++){
+        rho = rho_a + i*drho;
+        for(j=0; j<N_mesh; j++){
+            z = z_a + j*dz;
+            myfile << dn_dz(rho, z, c, R_A, R_B, X) << "       ";
+        }
+        myfile << "  " << endl;
+    }
+
+    myfile.close();
+    std::cout << "Density derivative w.r.t z written successfully in a txt file" << endl;
 }

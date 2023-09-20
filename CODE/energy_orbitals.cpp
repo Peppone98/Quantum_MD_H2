@@ -47,7 +47,7 @@ double Nuclear_kinetic_en(double X_new, double X_old){
 	double v = (X_new - X_old)/h_N;
 
 	/**** The reduced mass is 0.5*M_N, this justifies the 0.25 factor ****/
-	return 0.5*M_N*v*v;
+	return 0.25*M_N*v*v;
 }
 
 

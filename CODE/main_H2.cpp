@@ -52,6 +52,7 @@ int main (int argc, char *argv[]){
     /**** SC_DFT ****/
     /**** BOMD_HF ****/
     /**** BOMD_DFT ****/
+    /**** Evolve_coefficients (CP electronic energy evolution in single step) ****/ 
     /**** CPMD_HF ****/
     /**** CPMD_DFT ****/
     /**** CGMD_HF ****/
@@ -494,7 +495,7 @@ int main (int argc, char *argv[]){
             X[n + 1] = evolve_X(c, dS_dX, &R_B, E_1s, dE0_dX, X[n], X[n - 1], "BO_CG");
 
             /**** Print to X_en file and to screen ****/
-            T_N = Nuclear_kinetic_en(X[n + 1], X[n]);
+            T_N = Nuclear_kinetic_en(X[n], X[n-1]);
             std::cout << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << "    " << E_xc << "    " << dE0_dX << endl;
             X_en_file << X[n] << "    " << E0 << "    " << T_N << "    " << E_ee << "    " << E_one_body << "    " << E_xc << "    " << dE0_dX << endl;
         }
@@ -538,7 +539,8 @@ int main (int argc, char *argv[]){
 	    myfile.open("Energies_C_evolution.txt", ios :: out | ios :: trunc);
 
         /**** MD cycle: compute new c vector and keep F updated ****/
-        for(n=0; n<50; n++){
+        int steps = h_N/h;
+        for(n=0; n<steps; n++){
             two_body_F(Q, c, F);
             gsl_matrix_add(F, H);
             myfile << compute_E0(F, H, c) + 1./X[0] << endl;
@@ -848,8 +850,19 @@ int main (int argc, char *argv[]){
     /**** CONJUGATE GRADIENT MOLECULAR DYNAMICS ****/
     if(string(argv[1]) == "CGMD_HF"){
 
+        /**** Small equilibration with Car-Parrinello ****/
+        create_S(S, R_A, R_B);
+        one_body_H(H, R_A, R_B);
+        build_Q(Q, R_A, R_B);
+        double n_times = h_N/h;
+        for(int k=0; k<n_times; k++){
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
+
         /**** Threshold for conjugate gradient convergence ****/
-        double eps = 0.001;
+        double eps = 1e-4;
 
         /**** Open files to write the X, energies and coefficients ****/
         string X_en = "CGMD_HF_X_energies.txt";
@@ -943,6 +956,17 @@ int main (int argc, char *argv[]){
 
     /**** CPMD WITH DFT ****/
     if(string(argv[1]) == "CGMD_DFT"){
+
+        /**** Small equilibration with Car-Parrinello ****/
+        create_S(S, R_A, R_B);
+        one_body_H(H, R_A, R_B);
+        build_Q(Q, R_A, R_B);
+        double n_times = h_N/h;
+        for(int k=0; k<n_times; k++){
+            two_body_F(Q, c, F);
+            gsl_matrix_add(F, H);
+            lambda = update_c(F, S, c, c_old);
+        }
 
         /**** Choose the number of steps (must be less than iter=2000) ****/
         int N_steps;
@@ -1134,12 +1158,14 @@ int main (int argc, char *argv[]){
 
 
 
-    /**** CG AND CP SUPERPOSITION ****/
-    if(string(argv[1]) == "Force_difference"){
+    /**** SUPERPOSITION ****/
+    if(string(argv[1]) == "Scal_prod"){
         int i, j;
-        string set1, set2;
+        double prod1, prod2;
+        string set1, set2, record_1, record_2, line_X1, line_X2;
         gsl_vector *c1 = gsl_vector_alloc(2*N);
         gsl_vector *c2 = gsl_vector_alloc(2*N);
+        gsl_vector *Sc = gsl_vector_alloc(2*N);
 
         std::cout << "Select two sets of coefficients between CP, BO and CG" << endl;
         std::cout << "First set: ";
@@ -1148,35 +1174,55 @@ int main (int argc, char *argv[]){
         std::cin >> set2;
 
         /**** Name of the output file ****/
-        ofstream force_file;
-        force_file.open("Force_diff_" + set1 + "_" + set2 + ".txt");
+        ofstream scal_prod_file;
+        scal_prod_file.open("Scal_prod_" + set1 + "_" + set2 + ".txt");
 
         /**** Open the file stream ****/ 
-        string SET1 = "MD_" + set1 + "_HF_coeff.txt";
-        string SET2 = "MD_" + set2 + "_HF_coeff.txt";
-        string X_EN1 = "MD_" + set1 + "_HF_X_energies.txt";
-        string X_EN2 = "MD_" + set2 + "_HF_X_energies.txt";
+        string SET1 = set1 + "MD_HF_coeff.txt";
+        string SET2 = set2 + "MD_HF_coeff.txt";
+        string X_EN1 = set1 + "MD_HF_X_energies.txt";
+        string X_EN2 = set2 + "MD_HF_X_energies.txt";
 
+        /**** The idea is to get the whole set of X first and then do a cycle ****/
+        /**** for each line of the of the coefficients file ****/
         ifstream SET1_file;
         ifstream SET2_file;
         ifstream X_EN1_file;
         ifstream X_EN2_file;
         SET1_file.open(SET1);
         SET2_file.open(SET2); 
-        X_EN1_file.open(X_EN1); 
+        X_EN1_file.open(X_EN1);
         X_EN2_file.open(X_EN2);  
 
-        /**** Check if opening a file failed ****/ 
-        if (SET1_file.fail() || SET2_file.fail() || X_EN1_file.fail() || X_EN2_file.fail()) {
+        /**** Make the X_EN1 file an input stream ****/
+        vector<string> contents_X1;
+        while(!X_EN1_file.eof()){
+            getline(X_EN1_file, line_X1);
+
+            /**** Get the lines until the end of the file ****/
+            contents_X1.push_back(line_X1);
+        }
+
+        /**** Repeat for the second file ****/
+        vector<string> contents_X2;
+        while(!X_EN2_file.eof()){
+            getline(X_EN2_file, line_X2);
+            contents_X2.push_back(line_X2);
+        }
+
+        /**** Check if opening a coefficients file failed ****/ 
+        if (SET1_file.fail() || SET2_file.fail()) {
             std::cout << "Error opening the coeff or X_energies files" << endl;
             exit(1);
         }else{
-            double c_SET1[2*N], c_SET2[2*N], X1_from_file[6], X2_from_file[6], F1, F2;
-            double scal_prod = 0.0;
+            double c_SET1[2*N], c_SET2[2*N];
             string line;
+            int counts;
 
-            /**** Read the lines of the two files ****/
+            /**** Read the lines of the two coefficients files ****/
             while(getline(SET1_file, line)){
+
+                /**** Capture the lines *****/
                 for(i=0; i<2*N; i++){
                     SET1_file >> c_SET1[i];
                     SET2_file >> c_SET2[i];
@@ -1188,47 +1234,39 @@ int main (int argc, char *argv[]){
                     gsl_vector_set(c2, i, c_SET2[i]);
                 }
 
-                /**** Get the distance X from file ****/
-                for(i=0; i<5; i++){
-                    X_EN1_file >> X1_from_file[i];
-                }
-                std::cout << X1_from_file[0] << endl;
-                R_B.x = X1_from_file[0];
+                /**** Account for the number of the current line ****/
+                counts++;
 
-                /**** Compute the matrices containing the derivatives ****/
-                one_body_dH_dX(H, R_A, R_B, X1_from_file[0]);
-                build_dQ_dX(Q, R_A, R_B, X1_from_file[0]);
-                two_body_F(Q, c1, F);
-                gsl_matrix_add(F, H);
+                /**** Set R_B for the current line ****/
+                stringstream s1(contents_X1.at(counts - 1));
+                s1 >> record_1;
+                R_B.x = atof(record_1.c_str());
 
-                /**** Compute first force ****/
-                F1 = -compute_dE0_dX(F, H, c1, X1_from_file[0]);
+                /**** Fill the S matrix with the current value of X ****/
+                create_S(S, R_A, R_B);
 
-                /**** Get the second coordinate ****/
-                for(i=0; i<5; i++){
-                    X_EN2_file >> X2_from_file[0];
-                }
-                X_EN2_file >> X2_from_file[0];
-                R_B.x = X1_from_file[0];
+                /**** Compute the first scalar product C_2^T * S_1 * C_1 ****/
+                gsl_blas_dgemv(CblasNoTrans, 1., S, c1, 0., Sc);
+                gsl_blas_ddot(c2, Sc, &prod1);
 
-                /**** Compute the matrices containing the derivatives ****/
-                one_body_dH_dX(H, R_A, R_B, X2_from_file[0]);
-                build_dQ_dX(Q, R_A, R_B, X2_from_file[0]);
-                two_body_F(Q, c2, F);
-                gsl_matrix_add(F, H);
-
-                /**** Compute second force and print the difference ****/
-                F2 = -compute_dE0_dX(F, H, c2, X2_from_file[0]);
-                force_file << F1 - F2 << endl;
+                /**** Repeat everything ****/
+                stringstream s2(contents_X2.at(counts - 1));
+                s2 >> record_2;
+                R_B.x = atof(record_2.c_str());
+                create_S(S, R_A, R_B);
+                gsl_blas_dgemv(CblasNoTrans, 1., S, c1, 0., Sc);
+                gsl_blas_ddot(c2, Sc, &prod2);
+                scal_prod_file << fabs(prod1) << "    " << fabs(prod2) << endl; 
             }
+
             std::cout << "Coefficients files " << SET1 << " and " << SET2 << " successfully read" << endl;
-            std::cout << "File Force_diff.txt successfully written" << endl;
+            std::cout << "File .txt with scalar products successfully written" << endl;
         }
         SET1_file.close();
         SET2_file.close();
-        X_EN1_file.close(); 
+        X_EN1_file.close();
         X_EN2_file.close();
-        force_file.close();
+        scal_prod_file.close();
     }
     
 
@@ -1263,6 +1301,8 @@ int main (int argc, char *argv[]){
 
         /**** Print density ****/
         Print_density(c, X[0]);
+        Print_density_derivative(c, X[0]);
+        Print_density_dz(c, X[0], R_A, R_B);
 
         /**** Print all the integrand functions defined over the (rho, z) plane ****/
         Print_integrand(0, 0, R_A, R_B, c, X[0]);
@@ -1273,8 +1313,19 @@ int main (int argc, char *argv[]){
         Print_integrand(1, 2, R_A, R_B, c, X[0]);
         Print_integrand(1, 3, R_A, R_B, c, X[0]);
         Print_integrand(2, 2, R_A, R_B, c, X[0]);
-        Print_integrand(2, 3, R_A, R_B, c, X[0]);
+        Print_integrand(2, 3, R_A, R_A, c, X[0]);
         Print_integrand(3, 3, R_A, R_B, c, X[0]);
+        Print_integrand_dX(0, 0, R_A, R_B, c, X[0]);
+        Print_integrand_dX(0, 0, R_A, R_B, c, X[0]);
+        Print_integrand_dX(0, 1, R_A, R_B, c, X[0]);
+        Print_integrand_dX(0, 2, R_A, R_B, c, X[0]);
+        Print_integrand_dX(0, 3, R_A, R_B, c, X[0]);
+        Print_integrand_dX(1, 1, R_A, R_B, c, X[0]);
+        Print_integrand_dX(1, 2, R_A, R_B, c, X[0]);
+        Print_integrand_dX(1, 3, R_A, R_B, c, X[0]);
+        Print_integrand_dX(2, 2, R_A, R_B, c, X[0]);
+        Print_integrand_dX(2, 3, R_A, R_A, c, X[0]);
+        Print_integrand_dX(3, 3, R_A, R_B, c, X[0]);
     }
 
 
@@ -1323,8 +1374,8 @@ int main (int argc, char *argv[]){
             X_en_file.open(X_en, ios :: out | ios :: trunc);
             
             /**** Generate random initial positions ****/
-            X[0] = 1.0 + 1.0*rand()/RAND_MAX;
-            X[1] = X[0] + 0.05*rand()/RAND_MAX;
+            X[0] = 1.2;
+            X[1] = X[0];
             R_B.x = X[1];            
 
             for(n=1; n<iter-1; n++){
