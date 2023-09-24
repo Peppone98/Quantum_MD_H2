@@ -1291,7 +1291,7 @@ int main (int argc, char *argv[]){
         /**** Create the XC matrix ****/
         create_Ex_Corr(V_xc, R_A, R_B, c, X[0]);
 
-        std::cout << "Matrix V_xc: " << endl;
+        std::cout << "Matrix V_xc computed with STANDARD SIMPSON: " << endl;
         for(int k=0; k<2*N; k++){
             for(int j=0; j<2*N; j++){
                 std::cout << gsl_matrix_get(V_xc, k, j) << "   ";
@@ -1299,6 +1299,22 @@ int main (int argc, char *argv[]){
             std::cout << "  " << endl;
         }
 
+        std::cout << "  " << endl;
+        std::cout << "*************************************************************************" << endl;
+        std::cout << "  " << endl;
+        /**** Create the XC matrix ****/
+        Adaptive_Ex_Corr(V_xc, dVxc_dX, R_A, R_B, c, X[0], "V_xc");
+
+        std::cout << "Matrix V_xc computed with ADAPTIVE SIMPSON: " << endl;
+        for(int k=0; k<2*N; k++){
+            for(int j=0; j<2*N; j++){
+                std::cout << gsl_matrix_get(V_xc, k, j) << "   ";
+            }
+            std::cout << "  " << endl;
+        }
+
+        std::cout << "  " << endl;
+        
         /**** Print density ****/
         Print_density(c, X[0]);
         Print_density_derivative(c, X[0]);

@@ -30,6 +30,7 @@ void create_eval_evec(gsl_matrix *A, gsl_matrix *B, gsl_vector *C){
 	gsl_eigen_symmv_free(w); 
 	gsl_eigen_symmv_sort(C, B, GSL_EIGEN_SORT_VAL_ASC);
 }
+/**** eigenvectors are normalised to unit magnitude ****/
 
 
 void multiply(gsl_matrix *A, gsl_matrix *B, gsl_matrix *C){
@@ -54,11 +55,17 @@ double solve_FC_eSC(gsl_matrix *F, gsl_matrix *V, gsl_matrix *U){
 	gsl_matrix_memcpy(U, V);
 	gsl_matrix *tmp = gsl_matrix_alloc(2*N, 2*N);
 	gsl_vector *L = gsl_vector_alloc(2*N);
+
+	/**** Compute V^T * F * V, where F is the Fock matrix ****/
 	multiply(F, U, tmp); 
 	gsl_matrix_transpose(U); 
 	multiply(U, tmp, F); 
+
+	/**** Diagonalize Fock matrix ****/
 	create_eval_evec(F, tmp, L); 
-	gsl_matrix_transpose(U); 
+	gsl_matrix_transpose(U);
+
+	/**** Now, tmp contains the eigenvectors of F (see above lines), while U contains V ****/ 
 	multiply(U, tmp, U); 
 	val = gsl_vector_get(L, 0);
 	gsl_matrix_free(tmp);

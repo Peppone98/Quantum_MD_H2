@@ -1,3 +1,6 @@
 ARTICLES
 NOTEBOOKS
 TESTS
+.vscode
+.ipyinb_checkpoints
+.DS_Store

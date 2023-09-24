@@ -15,19 +15,19 @@ double evolve_X(gsl_vector *c, gsl_matrix *S, R *R_B, double lambda, double dE0_
 
     if(s == "CP"){
         /**** Readjust the lambda with the numerical factor (see "Evolution of C" algorithm in the text) ****/
-        lambda_tmp = lambda*0.25*(m + h*gamma_el);
+        lambda_tmp = -lambda*0.25*(m + h*gamma_el);
     }
 
     if(s == "BO_CG"){
         /**** Eigenvalue adjustement ****/
-        lambda_tmp = -2.0*lambda;
+        lambda_tmp = 2.0*lambda;
     }
 
     /**** Equation of motion for X. The 0.5 factor is due to the derivative (X_new - X_old)/2h_N in damped term ****/
     double X_new = 2.*X*M_N - X_old*(M_N - 0.5*gamma_N*h_N);
 
     /**** Factor 2: remember that the reduced mass is M_N/2 ****/
-    X_new -= 2.*h_N*h_N*(dE0_dX + lambda_tmp*norm);
+    X_new -= 2.*h_N*h_N*(dE0_dX - lambda_tmp*norm);
     X_new = X_new/(M_N + 0.5*gamma_N*h_N);
     
     /**** Update the nuclear position B ****/

@@ -1,6 +1,38 @@
 /********** SIMPSON ADAPTIVE INTEGRATION PART ********/
 
-#include "definitions.h" 
+#include "definitions.h"
+#include "xc.h"
+
+
+
+double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X){
+    /**** Compute the density ****/
+    double n = density(rho, z, c, X);
+
+    /**** Compute the exchange part ****/
+    double v_x = 0.0, v_c = 0.0;
+    xc_func_type functional_x;
+    xc_func_init(&functional_x, FUNCTIONAL_X, XC_UNPOLARIZED);
+    xc_lda_vxc(&functional_x, 1, &n, &v_x);
+    xc_func_end(&functional_x);
+
+    /**** Compute the correlation part ****/
+    xc_func_type functional_c;
+    xc_func_init(&functional_c, FUNCTIONAL_C, XC_UNPOLARIZED);
+    xc_lda_vxc(&functional_c, 1, &n, &v_c);
+    xc_func_end(&functional_c);
+
+    /**** This dE_dn is used in the integral. Note the a_x ****/
+    double dE_dn = a_x*v_x + v_c;
+
+    /**** Compute prefactor and R_C ****/
+    double prefactor = K(alpha, beta, R_A, R_B);
+    R R_C = R_weighted(alpha, beta, R_A, R_B);
+
+    /**** The motion is restricted to the x-axis, so we consider only R_C.x ****/
+    return prefactor*exp(-(alpha + beta)*(rho*rho + (z - R_C.x)*(z - R_C.x)))*dE_dn*rho;
+}
+
 
 
 double Get_Simpson_rho(double a, double b, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s){

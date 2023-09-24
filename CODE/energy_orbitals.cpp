@@ -11,7 +11,6 @@ void print_orbital(gsl_vector *c_new, R R_A, R R_B){
 	f = new double[mesh];
 	ofstream myfile;
 	myfile.open("Psi_0.txt", ios :: out | ios :: trunc);
-    myfile.precision(6);
 	for(i=0; i<mesh; i++){
 		r.x = -1. + R_A.x + i*h;
 		for(n=0; n<N; n++){

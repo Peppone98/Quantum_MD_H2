@@ -127,7 +127,7 @@ double lowest_positive_root(double a, double b, double c){
     }
 
     if(sol_1 == 0 && sol_2 == 0){
-        cout << "Negative Delta ! " << endl;
+        cout << "Problem in 2nd order equation ! " << endl;
     }
     return sol;
 }

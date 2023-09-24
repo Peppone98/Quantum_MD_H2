@@ -81,7 +81,7 @@ void Conj_grad(gsl_matrix *Hessian, gsl_vector *b, gsl_vector *Delta_c, double t
     while(sqrt(norm) > tol){
         gsl_blas_ddot(r, r, &norm);
 
-        /**** Update the C ****/
+        /**** Update the Delta_C ****/
         alpha = Get_alpha(Hessian, r, d);
         gsl_vector_scale(d, alpha);
         gsl_vector_add(Delta_c, d);

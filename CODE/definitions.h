@@ -2,13 +2,12 @@
 #define DEFINITIONS_H
 
 #include <iostream>
-#include <iomanip>
 #include <fstream>
+#include <sstream>
 #include <cstdlib>
 #include <string>
 #include <cmath>
 #include <vector>
-#include <sstream>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_matrix.h>
@@ -31,10 +30,10 @@ const double M_N = 1836.5; /* nuclear mass */
 const double gamma_N = 15.0; /* nuclear damping */
 const double h = 0.1; /* electronic time scale */
 const double h_N = 43*h; /* nuclear time scale*/
-const int N = 4;
-const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492}; 
+const int N = 4; /* basis centerd on each atom */
+const double a[N] = {13.00773, 1.962079, 0.444529, 0.1219492}; /* exponents of the Gaussians */
 const double pi = 3.141592653589793; 
-const double a_x = 0.0; /* For the exchange/correlation part */
+const double a_x = 0.0; /* for inclusion of exchange functional */
 
 
 
@@ -115,7 +114,6 @@ double Get_beta(double norm, gsl_vector *r);
 
 /********** EXCHANGE CORRELATION PART ***********/
 double density(double rho, double z, gsl_vector *c, double X);
-double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
 double Simpson_rho(double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
 double Simpson_z(double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
 void create_Ex_Corr(gsl_matrix *V_xc, R R_A, R R_B, gsl_vector *c, double X);
@@ -137,9 +135,9 @@ void Print_density_dz(gsl_vector *c, double X, R R_A, R R_B);
 
 
 /********* ADAPTIVE INTEGRATION PART ***********/
+double Integrand(double rho, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X);
 double Get_Simpson_rho(double a, double b, double z, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
 double Adaptive_Simpsons_rho(double a, double b, double z, double eps, double whole, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
-double Get_Simpson_z(double a, double b, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
 double Get_Simpson_z(double a, double b, double eps, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
 double Adaptive_Simpsons_z(double a, double b, double eps, double whole, double alpha, double beta, R R_A, R R_B, gsl_vector *c, double X, string s);
 void Adaptive_Ex_Corr(gsl_matrix *V_xc, gsl_matrix *dVxc_dX, R R_A, R R_B, gsl_vector *c, double X, string s);
