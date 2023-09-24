@@ -2,6 +2,7 @@ ARTICLES
 NOTEBOOKS
 TESTS
 .vscode
-.ipyinb_checkpoints
+.ipyinb_checkpoints/Auxiliary_notebook-checkpoint.ipynb
 .DS_Store
 CODE/plots.ipynb
+CODE/Integrands/plot_integrands.ipynb

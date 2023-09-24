@@ -17,6 +17,15 @@ The code returns one coefficients file with the name `AAMD_BBB_coeff.txt` and a 
 
 The columns of the `X_energies.txt` files are organized as follows: `X` (internuclear distance), `E_0` (HF or DFT energy), `T_N` (nuclear kinetic energy), `E_ee` (electron-electron energy), `E_ob` (energy associated with one-body operators), `E_xc` (exchange and correlation energy), `T_f` fictitious kinetic energy, `F` (force given by the gradient of the energy).
 
+```
+X          E_0         T_N           E_ee        E_ob        E_xc          T_f            F
+1.43462    -1.17521    0.0218615    -0.635305    -2.47389    -0.0985913    1.55495e-06    0.259554
+1.45561    -1.17467    0.0213696    -0.631927    -2.45949    -0.0983689    1.48501e-06    0.264643
+1.47635    -1.17401    0.0206266    -0.628632    -2.44545    -0.0981512    1.40099e-06    0.269236
+1.49673    -1.17324    0.0196661    -0.625436    -2.43185    -0.0979398    1.3063e-06    0.273357
+1.51663    -1.17237    0.0185238    -0.622361    -2.41874    -0.0977344    1.20406e-06    0.277013
+```
+
 The fictitious kinetic energy `T_f` column is provided only if `CPMD_HF` and `CPMD_DFT` are specified. Moreover, the column containing the exchange and correlation energy `E_xc` is reported only in `DFT` runs.
 
 The user can modify the list of parameters of the program in the header file `definitions.h`:
