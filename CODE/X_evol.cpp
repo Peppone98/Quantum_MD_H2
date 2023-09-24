@@ -4,6 +4,7 @@
 
 using namespace std;
 
+
 double evolve_X(gsl_vector *c, gsl_matrix *S, R *R_B, double lambda, double dE0_dX, double X, double X_old, string s){
     gsl_vector *c_tmp = gsl_vector_alloc(2*N);
     gsl_vector_memcpy(c_tmp, c);
