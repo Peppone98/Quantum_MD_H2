@@ -4,3 +4,4 @@ TESTS
 .vscode
 .ipyinb_checkpoints
 .DS_Store
+CODE/plots.ipynb
