@@ -1,5 +1,11 @@
 # Quantum molecular dynamics of the hydrogen molecule
 
+`C++` code for the quantum molecular dynamics of an isolated hydrogen molecule. The program can perform Born-Oppenheimer molecular dynamics (BOMD), Car-Parrinello molecular dynamics (CPMD) and molecular dynamics driven by conjugate gradient (CGMD).
+
+## Theoretical background and description of the code
+
+A discussion of the three methods and a description of the code can be found in the folder `REPORT`.
+
 ## Run the code
 
 The user has to compile the Makefile by prompting `make` on a terminal window in the same folder of the Makefile. Then the program can be executed with `./H2 OPTION_NAME`. 
@@ -47,3 +53,10 @@ const double pi = 3.141592653589793;
 const double a_x = 0.0; /* for inclusion of exchange functional */
 ```
  
+Below, some of the outputs are reported:
+
+![Alt text](CODE/outputs/pics/CG_BO_CP.png)
+*BOMD, CPMD and CGMD damped trajectories with density functional theory energy*
+
+![Alt text](CODE/outputs/pics/Force_diff.png)
+*Force difference between Car-Parrinello and Born-Oppenheimer trajectory*
